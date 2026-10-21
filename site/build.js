@@ -18,6 +18,7 @@ const { socialCards } = require('../lib/og-cards');
 const { phaseHubPath, phaseLabel, glossaryLookupKey } = require('../lib/hub-routes');
 const { writeHubs } = require('./build-hubs.js');
 const { writeCheatsheets, loadTopics, coverage } = require('./build-cheatsheets.js');
+const { writePractice } = require('./build-practice.js');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
@@ -2241,6 +2242,11 @@ function build() {
   const cheatsheets = writeCheatsheets({ siteDir: __dirname });
   hubs.cheatsheetPages = cheatsheets.pages;
   console.log(`   wrote ${cheatsheets.topics.length} cheat sheet posters`);
+  console.log('Writing practice problems...');
+  const practice = writePractice({ siteDir: __dirname });
+  hubs.practicePages = practice.pages;
+  hubs.practice = practice;
+  console.log(`   wrote ${practice.problems.length} practice problems in ${practice.tracks.length} tracks`);
   const glossaryPage = path.join(__dirname, 'glossary.html');
   replaceGeneratedDiscovery(glossaryPage, GLOSSARY_JSONLD_START, GLOSSARY_JSONLD_END, hubs.glossaryJsonLd);
   replaceGeneratedDiscovery(glossaryPage, GLOSSARY_INDEX_START, GLOSSARY_INDEX_END, hubs.glossaryIndex);
@@ -2333,6 +2339,7 @@ function writeHubSitemaps(hubs, siteDir = __dirname) {
     ['sitemap-phases.xml', hubs.phasePages.map(page => ({ loc: page.href, priority: '0.8', freq: 'monthly' }))],
     ['sitemap-glossary.xml', hubs.termPages.map(page => ({ loc: page.href, priority: '0.5', freq: 'monthly' }))],
     ['sitemap-cheatsheets.xml', (hubs.cheatsheetPages || []).map(page => ({ loc: page.href, priority: '0.5', freq: 'monthly' }))],
+    ['sitemap-practice.xml', (hubs.practicePages || []).map(page => ({ loc: page.href, priority: '0.6', freq: 'monthly' }))],
   ].filter(([, urls]) => urls.length).map(([name, urls]) => {
     fs.writeFileSync(path.join(siteDir, name), urlsetXml(urls), 'utf8');
     return name;
@@ -2439,6 +2446,12 @@ function hubLlms(hubs) {
   for (const phase of hubs.phaseModels) out += `- [${phase.headline}](${SITE_ORIGIN}${phase.href}): ${phase.label}\n`;
   out += `\n## Glossary term pages\n`;
   out += `${hubs.termPages.length} glossary terms have their own page at ${SITE_ORIGIN}/glossary/<term slug>. [Glossary term sitemap](${SITE_ORIGIN}/sitemap-glossary.xml)\n\n`;
+  if (hubs.practice && hubs.practice.problems.length) {
+    out += `## Practice problems\n`;
+    out += `${hubs.practice.problems.length} practice problems ask the learner to write code from a lesson and check it with Python and numpy in the browser. Each page holds the statement only. The checks are in the repository under practice/<id>/, and \`python3 scripts/practice/run.py <id> <file>\` runs them offline. [Practice sitemap](${SITE_ORIGIN}/sitemap-practice.xml)\n\n`;
+    for (const problem of hubs.practice.problems) out += `- [${problem.meta.title}](${SITE_ORIGIN}${problem.href}) (${problem.meta.difficulty}): ${problem.meta.summary} From [${problem.lessonTitle}](${SITE_ORIGIN}/lesson?path=${encodeURIComponent(problem.meta.lesson)})\n`;
+    out += `\n`;
+  }
   return out;
 }
 
