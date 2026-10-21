@@ -302,5 +302,5 @@ def clip(text):
 def evaluate_json(source, tests_path, fixtures_text, layers_text="", limit_s=0):
     layers = [layer for layer in layers_text.split(",") if layer] or None
     data = json.loads(fixtures_text) if fixtures_text else {}
-    return json.dumps(evaluate(source, tests_path, data, layers, limit_s or None), allow_nan=True)
+    return json.dumps(evaluate(source, tests_path, data, layers, limit_s or None), allow_nan=False)
 

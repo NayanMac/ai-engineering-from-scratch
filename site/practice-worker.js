@@ -61,7 +61,7 @@ function run(message) {
         'import practice_check',
         'practice_check.evaluate_json(practice_source, "' + DIR + '/practice_tests.py", practice_fixtures, practice_layers, practice_limit)'
       ].join('\n'));
-      var report = JSON.parse(text.replace(/\bNaN\b/g, 'null').replace(/-?\bInfinity\b/g, 'null'));
+      var report = JSON.parse(text);
       report.ms = Date.now() - started;
       return report;
     });
