@@ -864,6 +864,8 @@ function topicErrors(topics) {
 function researchLinks(topics, root = REPO_ROOT) {
   if (!fs.existsSync(path.join(root, research.MAP_FILE))) return {};
   const map = research.loadMap(root);
+  const problems = research.validate(map, research.loadIndex(root), root);
+  if (problems.length) throw new Error(`${research.MAP_FILE} has errors. Run node scripts/research_bridge.js for the full report.\n${problems.join('\n')}`);
   const out = {};
   for (const topic of topics) {
     let slugs;

@@ -40,14 +40,14 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" ]; then
+            echo "An open pull request already tracks $BRANCH. Review it first; this run does not change it." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           git switch -c "$BRANCH"
           git add research/methods.json research/paperswithcode-index.json
           printf 'chore(research): drop slugs that left the paperswithcode.co sitemap\n' > "$RUNNER_TEMP/commit.txt"
           git commit -F "$RUNNER_TEMP/commit.txt"
           git push --force origin "HEAD:$BRANCH"
-          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" ]; then
-            echo "an open pull request already tracks $BRANCH"
-            exit 0
-          fi
           printf '\nThis pull request was opened by the weekly research bridge job. A person must check it before merge. Close and reopen it to start the CI checks.\n' >> "$RUNNER_TEMP/research-report.md"
           gh pr create --base main --head "$BRANCH" --title "chore(research): drop slugs that left the paperswithcode.co sitemap" --body-file "$RUNNER_TEMP/research-report.md"

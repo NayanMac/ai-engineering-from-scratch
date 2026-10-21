@@ -56,7 +56,7 @@ test('a valid map has no problems and each kind of mistake is reported', () => {
   broken.lessons['phases/01-demo/99-nowhere'] = { methods: [{ slug: 'grpo', why: 'Builds it.' }] };
   broken.topics.nowhere = { methods: [] };
   const problems = research.validate(broken, INDEX, dir).join('\n');
-  assert.match(problems, /"missing" is not in the paperswithcode\.co sitemap/);
+  assert.match(problems, /"missing" is not in the cached paperswithcode\.co sitemap; if the slug is new, run node scripts\/research_bridge\.js --refresh/);
   assert.match(problems, /lists grpo twice/);
   assert.match(problems, /needs a why/);
   assert.match(problems, /99-nowhere"\] has no docs\/en\.md/);
@@ -159,6 +159,17 @@ test('the refresh writes the cache, prunes vanished slugs and reports them', asy
   assert.match(text, /- `methods\/dpo`/);
 });
 
+test('a malformed topic entry stops the poster build with the map error', () => {
+  const dir = fixture();
+  fs.mkdirSync(path.join(dir, 'research'));
+  const map = demoMap();
+  map.topics.demo = { tasks: ['reasoning'] };
+  fs.writeFileSync(path.join(dir, research.MAP_FILE), research.stringify(map));
+  fs.writeFileSync(path.join(dir, research.INDEX_FILE), research.stringify(INDEX));
+  assert.throws(() => researchLinks([{ id: 'demo', sources: [], blocks: [] }], dir), /topics\["demo"\]\.methods must be a list/);
+  assert.deepEqual(research.vanished(demoMap(), {}), { methods: ['grpo'], tasks: ['reasoning'] });
+});
+
 test('the lesson panel links each mapped method and task to its outbound page', () => {
   const research = {
     [LESSON]: { methods: [{ slug: 'grpo', name: 'GRPO' }, { slug: 'bad slug', name: 'Bad' }, { slug: 'x', name: '<b>' }], tasks: [{ slug: 'reasoning', name: 'Reasoning' }] },
@@ -175,12 +186,15 @@ test('the lesson panel links each mapped method and task to its outbound page', 
   assert.equal(lessonApi.lessonResearch({ path: 'phases/01-demo/02-other' }, page, research), '');
 });
 
-test('a served lesson page shows the panel below the lesson content', async () => {
+test('a served lesson page shows the panel below the lesson content', async t => {
   const map = research.loadMap(root);
   const lessonPath = Object.keys(map.lessons).find(id => map.lessons[id].methods.length);
   const manifestFile = path.join(root, 'site', 'lesson-seo.json');
   const mapFile = path.join(root, 'site', 'research-map.json');
-  if (!fs.existsSync(manifestFile) || !fs.existsSync(mapFile)) return;
+  if (!fs.existsSync(manifestFile) || !fs.existsSync(mapFile)) {
+    t.skip('run node site/build.js first to write lesson-seo.json and research-map.json');
+    return;
+  }
   const response = {
     headers: {},
     setHeader(name, value) { this.headers[name.toLowerCase()] = value; },
