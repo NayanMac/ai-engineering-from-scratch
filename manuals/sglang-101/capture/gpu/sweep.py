@@ -15,7 +15,7 @@ from offline import prefetch, with_dataset
 HERE = Path(__file__).resolve().parent
 PYTHON = sys.executable
 PROFILES = {
-    "gb10": {"model": "Qwen/Qwen3-30B-A3B-Instruct-2507", "fp8": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "draft": "lmsys/SGLang-EAGLE3-Qwen3-30B-A3B-Instruct-2507-SpecForge-Nex", "fraction": "0.7"},
+    "gb10": {"model": "Qwen/Qwen3-30B-A3B-Instruct-2507", "fp8": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "draft": "lmsys/SGLang-EAGLE3-Qwen3-30B-A3B-Instruct-2507-SpecForge-Nex", "fraction": "0.7", "vllm_blocks": "14685", "vllm_util": "0.75", "vllm_max_len": "8192"},
     "l4": {"model": "Qwen/Qwen3-8B", "fp8": "Qwen/Qwen3-8B-FP8", "draft": "Tengyunw/qwen3_8b_eagle3", "fraction": "0.85", "moe_fp8": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "vllm_blocks": "1506", "vllm_util": "0.9", "vllm_max_len": "8192"},
 }
 PROFILES["l4-gpu1"] = {**PROFILES["l4"], "vllm_blocks": "183", "vllm_util": "0.83", "vllm_max_len": "2928"}
@@ -54,6 +54,23 @@ def configs(profile):
         "pd-swap": (p["model"], []),
         "vllm": (p["model"], []),
         "vllm-no-prefix-cache": (p["model"], ["--no-enable-prefix-caching"]),
+        "vllm-b": (p["model"], []),
+        "vllm-eager": (p["model"], ["--enforce-eager"]),
+        "vllm-mnbt-2048": (p["model"], ["--max-num-batched-tokens", "2048"]),
+        "vllm-mnbt-16384": (p["model"], ["--max-num-batched-tokens", "16384"]),
+        "vllm-seqs-16": (p["model"], ["--max-num-seqs", "16"]),
+        "vllm-async": (p["model"], ["--async-scheduling"]),
+        "vllm-kv-fp8": (p["model"], ["--kv-cache-dtype", "fp8"]),
+        "vllm-fp8": (p["fp8"], []),
+        "vllm-eagle3": (p["model"], ["--speculative-config", json.dumps({"method": "eagle3", "model": p["draft"], "num_speculative_tokens": 3})]),
+        "vllm-ngram": (p["model"], ["--speculative-config", json.dumps({"method": "ngram", "num_speculative_tokens": 3, "prompt_lookup_max": 4})]),
+        "vllm-small-pool": (p["model"], ["--num-gpu-blocks-override", "410"]),
+        "vllm-O0": (p["model"], ["-O0"]),
+        "vllm-O1": (p["model"], ["-O1"]),
+        "vllm-O3": (p["model"], ["-O3"]),
+        "vllm-mnbt-512": (p["model"], ["--max-num-batched-tokens", "512"]),
+        "vllm-eagle3-k1": (p["model"], ["--speculative-config", json.dumps({"method": "eagle3", "model": p["draft"], "num_speculative_tokens": 1})]),
+        "vllm-eagle3-k5": (p["model"], ["--speculative-config", json.dumps({"method": "eagle3", "model": p["draft"], "num_speculative_tokens": 5})]),
         "graphs-on-b": (p["model"], []),
         "graphs-off-b": (p["model"], ["--cuda-graph-backend-decode", "disabled", "--cuda-graph-backend-prefill", "disabled"]),
         "moe-tp2": (p.get("moe_fp8", p["fp8"]), ["--tp-size", "2", "--kv-cache-dtype", "fp8_e4m3"]),

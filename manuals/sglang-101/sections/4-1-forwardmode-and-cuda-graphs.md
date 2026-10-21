@@ -108,7 +108,7 @@ Our reading of this result: one decode step of this model takes about 32 ms at b
 
 Our first sweep on an L4, with the dense `Qwen/Qwen3-8B`, was wrong. The card ran at 87 C with a thermal slowdown, at an SM clock of 360 MHz out of 2,040. A throttled GPU is slow on every step, so the launch saving disappears in the noise. We removed those numbers. Record GPU clocks and temperature with every benchmark, as [section 5.1](#s-sglang-benchmark-serving) shows.
 
-We then ran the same pair on a cooled L4. Every run started at 72 C or below. A run with a median SM clock under 1,000 MHz was repeated, up to three times. The server with graphs ran on 2026-10-16 and the server without them on 2026-10-18, with the same pool of 24,094 tokens.
+We then ran the same pair on a cooled L4. Every run started at 72 C or below. A run with a median SM clock under 1,000 MHz was repeated, up to three times. The first pair ran on two days, 2026-10-16 and 2026-10-18. We ran both servers again on 2026-10-21, one after the other, with the same pool of 24,094 tokens. The table shows the same-day pair.
 
 ```listing
 title: the same batch, with and without a graph
@@ -122,12 +122,15 @@ note: One decode line from each server at 33 running requests. The first replaye
 
 | Concurrency | Median TPOT with graphs / without | Output tok/s with / without | P99 ITL with / without |
 |---|---|---|---|
-| 1 | 60.16 / 60.63 ms | 13.42 / 13.81 | 104 / 104 ms |
-| 8 | 66.01 / 66.64 ms | 112.62 / 111.60 | 71 / 68 ms |
-| 32 | 96.18 / 94.11 ms | 270.11 / 270.80 | 103 / 89 ms |
-| 64 | 107.42 / 106.70 ms | 250.85 / 256.41 | 114 / 98 ms |
+| 1 | 60.15 / 60.64 ms | 13.93 / 14.67 | 104 / 104 ms |
+| 8 | 66.01 / 66.60 ms | 112.60 / 111.67 | 70 / 68 ms |
+| 16 | 70.08 / 70.59 ms | 201.21 / 200.16 | 80 / 73 ms |
+| 32 | 95.65 / 94.12 ms | 270.61 / 270.81 | 103 / 87 ms |
+| 64 | 103.39 / 103.12 ms | 264.10 / 265.30 | 109 / 90 ms |
 
-**We measured** a small difference on the L4 as well. Up to 16 users, the graphs saved 0.5 to 0.6 ms of a 60 to 70 ms step, under 1 percent. Throughput was within 3 percent at every concurrency. From 32 users, the server without graphs had the lower P99 ITL, 89 against 103 ms at 32 users. We do not have a mechanism for that, and the two servers ran on different days, so read it as a lead, not a result.
+**We measured** a small difference on the L4 as well. Up to 16 users, the graphs saved 0.5 to 0.6 ms of a 60 to 70 ms step, under 1 percent. Throughput was within 3 percent at every concurrency. From 16 users, the server without graphs had the lower P99 ITL: 73 against 80 ms, 87 against 103 ms, and 90 against 109 ms. The seed ranges did not overlap, and the first pair on two other days showed the same gap. We do not have a mechanism for it yet, so we report the gap and do not explain it.
+
+The GB10 gave no such gap on the same day. Its P99 ITL with and without graphs stayed within 7 percent at every concurrency, and the median TPOT within 2 percent.
 
 Our reading: a step of an 8B model at batch 1 reads about 16 GB of weights from memory. The launch time that a graph removes is small next to that read.
 
@@ -135,7 +138,7 @@ Our reading: a step of an 8B model at batch 1 reads about 16 GB of weights from 
 
 Keep CUDA graphs on, and size them to your traffic. The default `max_bs` suits moderate concurrency. If your benchmark or your production peak runs more requests than that, set `--cuda-graph-max-bs-decode` and `--max-running-requests` to your target before you measure. SemiAnalysis InferenceX recipes {{field InferenceX 2026-05}} derive both values from the concurrency they test.
 
-Do not expect graphs to make a slow decode fast on every machine. On the GB10, one decode step of a mixture-of-experts model takes tens of milliseconds, and graphs changed it by 3 percent or less. On the L4, with a dense 8B model, they saved under 1 percent. Measure with and without graphs before you blame the launch path.
+Do not expect graphs to make a slow decode fast on every machine. On the GB10, one decode step of a mixture-of-experts model takes tens of milliseconds, and graphs changed it by 3 percent or less. On the L4, with a dense 8B model, they saved under 1 percent, and the worst token gap was shorter without them from 16 users. Measure the median and the tail, with and without graphs, before you blame the launch path.
 
 Do not turn graphs off to fix memory. If capture runs out of memory, lower `--cuda-graph-max-bs-decode` or `--mem-fraction-static`. A server without decode graphs pays launch time on every token for every user.
 
@@ -168,4 +171,4 @@ note: Two lines from the deprecated flags at the end of the help text.
 - Replace --cuda-graph-max-bs and --disable-cuda-graph in old recipes with the v0.5.22 per-phase flags.
 ```
 
-Sources: capture/out/server-default.log, capture/out/serve-help.txt, capture/gpu/out-gb10/server-default.log, capture/gpu/out-gb10/server-no-cuda-graph.log, capture/gpu/summary/gb10.json, capture/gpu/incidents/l4-thermal-throttle.txt, capture/gpu/out-l4/server-load-graphs-on-off.log, capture/gpu/summary/l4.json (load.default, load.no-cuda-graph), python/sglang/srt/model_executor/forward_batch_info.py (ForwardMode), model_executor/model_runner.py (_forward_raw), model_executor/cuda_graph_config.py (default_prefill_backend), model_executor/runner/decode_cuda_graph_runner.py (can_run_graph), arg_groups/memory_hook.py (_handle_gpu_memory_settings), arg_groups/cuda_graph_hook.py (generate_decode_cuda_graph_batch_sizes), and server_args.py (deprecated flags) at v0.5.22; the argument parser of the installed v0.5.22 package; PRs #23906, #29458, #37898, #42285; issues #23769 and #36478; field reports by Hazy Research (2025-09-28), Jarvislabs (2026-05-18), joshua8.ai (2026-01-10), and SemiAnalysis InferenceX (2026-05-26).
+Sources: capture/out/server-default.log, capture/out/serve-help.txt, capture/gpu/out-gb10/server-default.log, capture/gpu/out-gb10/server-no-cuda-graph.log, capture/gpu/summary/gb10.json, capture/gpu/incidents/l4-thermal-throttle.txt, capture/gpu/out-l4/server-load-graphs-on-off.log, capture/gpu/summary/l4.json (load.default, load.no-cuda-graph, load.graphs-on-b, load.graphs-off-b), python/sglang/srt/model_executor/forward_batch_info.py (ForwardMode), model_executor/model_runner.py (_forward_raw), model_executor/cuda_graph_config.py (default_prefill_backend), model_executor/runner/decode_cuda_graph_runner.py (can_run_graph), arg_groups/memory_hook.py (_handle_gpu_memory_settings), arg_groups/cuda_graph_hook.py (generate_decode_cuda_graph_batch_sizes), and server_args.py (deprecated flags) at v0.5.22; the argument parser of the installed v0.5.22 package; PRs #23906, #29458, #37898, #42285; issues #23769 and #36478; field reports by Hazy Research (2025-09-28), Jarvislabs (2026-05-18), joshua8.ai (2026-01-10), and SemiAnalysis InferenceX (2026-05-26).
