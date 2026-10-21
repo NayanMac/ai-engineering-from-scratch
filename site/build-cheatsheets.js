@@ -10,6 +10,7 @@ const { SITE_HEADER } = require('./build-hubs');
 const { versionHtml } = require('./version-assets');
 const topicMap = require('./cheatsheet-topics');
 const evidenceCheck = require('./cheatsheet-evidence');
+const research = require('../lib/research-map');
 
 const ORIGIN = 'https://aiengineeringfromscratch.com';
 const REPO = 'https://github.com/rohitg00/ai-engineering-from-scratch';
@@ -25,6 +26,7 @@ const MAX_PAGES = 2;
 const PAGE_BUDGETS = [870, 930];
 const MAX_SUBTITLE = 120;
 const SEARCH_DETAIL = 60;
+const RESEARCH_LINKS = 6;
 const KIND_LABELS = { concept: 'Concepts', commands: 'Commands and APIs', comparison: 'Comparisons', debugging: 'Debugging', manual: 'Manuals', project: 'Projects' };
 const TRACKS = [
   ['foundations', 'Foundations', ['00', '01', '02', '03']],
@@ -674,7 +676,9 @@ function posterMain(topic, year, neighbours) {
   }).join('');
   const head = `<header class="cs-poster-head"><div class="cs-title-block"><span class="cs-code" aria-hidden="true">${escapeHtml(topic.code)}</span><div><p class="cs-kicker"><a href="${BASE}">Cheat sheets</a></p><h1>${escapeHtml(topic.title)}</h1><p class="cs-sub">${placeholders(inline(topic.subtitle))}</p></div></div><div class="cs-head-side">${legendHtml(topic)}<p class="cs-actions"><button type="button" class="cs-print" data-print>Print</button><a href="${REPO}/blob/main/${TOPIC_DIR}/${topic.id}.md">Source</a></p></div></header>`;
   const pager = [neighbours.previous && `<a href="${neighbours.previous.href}" rel="prev">← ${escapeHtml(neighbours.previous.title)}</a>`, `<a href="${BASE}">All cheat sheets</a>`, neighbours.next && `<a href="${neighbours.next.href}" rel="next">${escapeHtml(neighbours.next.title)} →</a>`].filter(Boolean).join('');
-  const foot = `<footer class="cs-foot"><p class="cs-covers"><span>Covers</span>${sources}</p><nav class="cs-pager" aria-label="Cheat sheet navigation">${pager}</nav><p class="cs-stamp"><span>aiengineeringfromscratch.com${BASE}/${topic.id}</span><span>${copyLine(year)}</span><span>source ${topic.hash}</span></p></footer>`;
+  const links = (topic.research || []).map(item => `<a href="${escapeHtml(item.href)}" target="_blank" rel="noopener">${escapeHtml(item.name)}<span aria-hidden="true"> ↗</span></a>`).join('');
+  const researchLine = links ? `<p class="cs-covers cs-research"><span>Research</span>${links}<a href="/research">Find a method</a></p>` : '';
+  const foot = `<footer class="cs-foot"><p class="cs-covers"><span>Covers</span>${sources}</p>${researchLine}<nav class="cs-pager" aria-label="Cheat sheet navigation">${pager}</nav><p class="cs-stamp"><span>aiengineeringfromscratch.com${BASE}/${topic.id}</span><span>${copyLine(year)}</span><span>source ${topic.hash}</span></p></footer>`;
   return `<main id="main" class="cs-page cs-poster">${head}${cols}${foot}</main>`;
 }
 
@@ -857,8 +861,34 @@ function topicErrors(topics) {
   return topics.flatMap(topic => topic.errors.map(error => `${topic.file}: ${error}`));
 }
 
+function researchLinks(topics, root = REPO_ROOT) {
+  if (!fs.existsSync(path.join(root, research.MAP_FILE))) return {};
+  const map = research.loadMap(root);
+  const out = {};
+  for (const topic of topics) {
+    let slugs;
+    if (Object.prototype.hasOwnProperty.call(map.topics, topic.id)) {
+      slugs = map.topics[topic.id].methods.map(item => item.slug);
+    } else {
+      const counts = new Map();
+      coveredLessons(topic, root).forEach((lesson, order) => {
+        for (const item of (map.lessons[lesson] && map.lessons[lesson].methods) || []) {
+          const seen = counts.get(item.slug) || { slug: item.slug, count: 0, order };
+          seen.count += 1;
+          counts.set(item.slug, seen);
+        }
+      });
+      slugs = Array.from(counts.values()).sort((a, b) => b.count - a.count || a.order - b.order || a.slug.localeCompare(b.slug)).map(item => item.slug);
+    }
+    out[topic.id] = slugs.slice(0, RESEARCH_LINKS).map(slug => ({ slug, name: map.methods[slug], href: research.methodUrl(slug) }));
+  }
+  return out;
+}
+
 function buildCheatsheets({ root = REPO_ROOT, siteDir = __dirname, edition } = {}) {
   const topics = loadTopics(root);
+  const links = researchLinks(topics, root);
+  for (const topic of topics) topic.research = links[topic.id] || [];
   const invalid = topicErrors(topics);
   if (invalid.length) throw new Error(`Cheat sheet topics have errors. Run node site/build-cheatsheets.js --check for the full report.\n${invalid.join('\n')}`);
   const assets = { head: versionHtml(HEAD_ASSETS, siteDir), body: versionHtml(BODY_ASSETS, siteDir) };
@@ -879,7 +909,7 @@ function buildCheatsheets({ root = REPO_ROOT, siteDir = __dirname, edition } = {
       html: shell({ title: `${topic.title} cheat sheet - AI Engineering from Scratch`, description: `${topic.title} cheat sheet. ${plain(topic.subtitle)}`, href: topic.href, card: 'page/home', main: posterMain(topic, year, neighbours), bodyClass: 'cs-body', hue: topic.hue }, assets),
     });
   });
-  return { topics, pages, date, map, search: JSON.stringify(searchIndex(topics)) };
+  return { topics, pages, date, map, research: links, search: JSON.stringify(searchIndex(topics)) };
 }
 
 function readSources(sources, root, cache) {
@@ -1025,7 +1055,7 @@ function qualityReport(topic) {
 
 function checkLinks(built, root = REPO_ROOT) {
   const known = new Set(built.pages.map(page => page.href));
-  const fixed = new Set(['/', '/catalog', '/roadmap', '/glossary', '/about', BASE]);
+  const fixed = new Set(['/', '/catalog', '/roadmap', '/glossary', '/about', '/research', BASE]);
   const broken = [];
   const manuals = new Set(fs.existsSync(path.join(root, 'manuals')) ? fs.readdirSync(path.join(root, 'manuals')) : []);
   for (const page of built.pages) {
@@ -1222,4 +1252,4 @@ function main(argv) {
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
 
-module.exports = { qualityReport, QUALITY_RULES, trackOf, parseTopic, loadTopics, buildCheatsheets, writeCheatsheets, writePrint, printHtml, prerenderMath, checkTopic, checkLinks, coverage, layout, factTokens, blockFacts, architectureSvg, flowSvg, TYPES };
+module.exports = { researchLinks, qualityReport, QUALITY_RULES, trackOf, parseTopic, loadTopics, buildCheatsheets, writeCheatsheets, writePrint, printHtml, prerenderMath, checkTopic, checkLinks, coverage, layout, factTokens, blockFacts, architectureSvg, flowSvg, TYPES };

@@ -125,6 +125,7 @@ site/cheatsheet-map.json
 site/manual-*.html
 site/manuals-data.js
 site/manuals.html
+site/research-map.json
 
 !manuals/*/capture/out/*.log
 !manuals/*/capture/gpu/out-*/*.log

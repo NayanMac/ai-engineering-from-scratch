@@ -232,6 +232,65 @@
       text-transform: uppercase;
     }
 
+    .lesson-research {
+      width: 100%;
+      max-width: 720px;
+      margin-top: 40px;
+      padding: 16px 18px;
+      border: 1px solid var(--rule-soft);
+      border-left: 3px solid var(--blueprint);
+      background: var(--bg-surface);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      overflow-wrap: anywhere;
+    }
+
+    .lesson-research h2 {
+      margin: 0 0 6px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blueprint);
+    }
+
+    .lesson-research p {
+      margin: 0;
+    }
+
+    .lesson-research .lesson-research-label {
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    .lesson-research-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin: 4px 0 10px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .lesson-research-list a {
+      font-weight: 600;
+    }
+
+    .lesson-research-arrow {
+      margin-left: 3px;
+      font-size: 0.85em;
+    }
+
+    .lesson-research + .lesson-hub-links {
+      margin-top: 24px;
+    }
+
     .lesson-content {
       max-width: 720px;
       width: 100%;
@@ -2507,6 +2566,7 @@
         padding: 44px 20px 80px;
       }
       .lesson-content,
+      .lesson-research,
       .lesson-hub-links { max-width: none; }
     }
 

@@ -1,0 +1,151 @@
+.rs-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.rs-search {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+  margin-block-start: 24px;
+}
+
+.rs-search[hidden],
+.rs-area[hidden],
+.rs-method[hidden],
+.rs-task[hidden],
+.rs-empty[hidden] {
+  display: none;
+}
+
+.rs-search label {
+  color: var(--ink-mute);
+}
+
+.rs-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  background: var(--bg-surface);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+}
+
+.rs-search input:focus-visible {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 2px;
+}
+
+.rs-count {
+  min-height: 1.4em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.rs-methods {
+  display: grid;
+  gap: 0;
+  list-style: none;
+}
+
+.rs-method,
+.rs-task {
+  min-width: 0;
+  padding-block: 16px;
+  border-block-start: 1px solid var(--rule-soft);
+  overflow-wrap: anywhere;
+  scroll-margin-top: 96px;
+}
+
+.rs-method:first-child,
+.rs-task:first-child {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+
+.rs-method:target {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 6px;
+}
+
+.rs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.rs-head h3 {
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.rs-out {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--blueprint);
+  white-space: nowrap;
+}
+
+.rs-arrow {
+  margin-inline-start: 4px;
+}
+
+.rs-lessons {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 8px;
+  list-style: none;
+}
+
+.rs-lessons a {
+  font-weight: 600;
+}
+
+.rs-num {
+  margin-inline-start: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.rs-lessons p,
+.rs-task p,
+.rs-sheets {
+  margin-block-start: 2px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.rs-sheets {
+  margin-block-start: 8px;
+}
+
+.rs-empty {
+  padding-block: 32px;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  .rs-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rs-out {
+    white-space: normal;
+  }
+}

@@ -30,6 +30,10 @@ function loadProductionAssets() {
     const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'site', 'lesson-seo.json'), 'utf8'));
     let lessonTerms = {};
     let cheatsheets = {};
+    let research = {};
+    try {
+      research = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'site', 'research-map.json'), 'utf8')).lessons || {};
+    } catch (_) {}
     try {
       cheatsheets = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'site', 'cheatsheet-map.json'), 'utf8')).lessons || {};
     } catch (_) {}
@@ -41,6 +45,7 @@ function loadProductionAssets() {
       manifest,
       lessonTerms,
       cheatsheets,
+      research,
       readMarkdown: function (lessonPath) {
         return fs.readFileSync(path.join(REPO_ROOT, lessonPath, 'docs', 'en.md'), 'utf8');
       },
@@ -356,6 +361,33 @@ function sheetLinks(lessonPath, sheets) {
   return links.length ? `        <p class="lesson-hub-terms"><span>Cheat sheets:</span> ${links.join(', ')}</p>` : '';
 }
 
+const RESEARCH_SITE = 'https://paperswithcode.co';
+const RESEARCH_SLUG = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
+
+function researchItems(list, kind) {
+  return (Array.isArray(list) ? list : [])
+    .filter(item => item && typeof item.name === 'string' && item.name && RESEARCH_SLUG.test(item.slug || ''))
+    .map(item => `<li><a href="${RESEARCH_SITE}/${kind}/${escapeHtml(item.slug)}" target="_blank" rel="noopener">${escapeHtml(item.name)}<span class="lesson-research-arrow" aria-hidden="true">↗</span></a></li>`);
+}
+
+function lessonResearch(entry, page, research) {
+  if (!page.hub || page.lang !== 'en') return '';
+  const links = research && Object.prototype.hasOwnProperty.call(research, entry.path) ? research[entry.path] : null;
+  if (!links || typeof links !== 'object') return '';
+  const methods = researchItems(links.methods, 'methods');
+  const tasks = researchItems(links.tasks, 'tasks');
+  if (!methods.length && !tasks.length) return '';
+  return [
+    '      <aside class="lesson-research" aria-labelledby="lessonResearchTitle">',
+    '        <h2 id="lessonResearchTitle">In research</h2>',
+    '        <p>Current papers and code that use what this lesson builds. The links open paperswithcode.co, an external site.</p>',
+    methods.length ? `        <p class="lesson-research-label">Methods</p><ul class="lesson-research-list">${methods.join('')}</ul>` : '',
+    tasks.length ? `        <p class="lesson-research-label">Tasks</p><ul class="lesson-research-list">${tasks.join('')}</ul>` : '',
+    '        <p><a href="/research">Find the lesson for another method</a></p>',
+    '      </aside>',
+  ].filter(Boolean).join('\n');
+}
+
 function lessonHubLinks(entry, page, lessonTerms, sheets) {
   if (!page.hub || page.lang !== 'en') return '';
   const terms = lessonTerms && Object.prototype.hasOwnProperty.call(lessonTerms, entry.path) && Array.isArray(lessonTerms[entry.path])
@@ -537,7 +569,7 @@ function createHandler(options) {
         const body = renderBody(markdown, page.heading);
         let html = replaceMarkedRegion(localizedTemplate(template, servedLang), SEO_START, SEO_END, lessonHead(entry, page));
         html = replaceMarkedRegion(html, FALLBACK_START, FALLBACK_END, lessonFallback(entry, lessonPath, contextParams, page, body));
-        html = replaceMarkedRegion(html, HUBS_START, HUBS_END, lessonHubLinks(entry, page, assets.lessonTerms, assets.cheatsheets));
+        html = replaceMarkedRegion(html, HUBS_START, HUBS_END, [lessonResearch(entry, page, assets.research), lessonHubLinks(entry, page, assets.lessonTerms, assets.cheatsheets)].filter(Boolean).join('\n'));
         send(res, method, 200, html, cacheControl);
       };
       const lang = contextParams.lang;
@@ -564,4 +596,5 @@ module.exports.createHandler = createHandler;
 module.exports.validLessonPath = validLessonPath;
 module.exports.validTrackId = validTrackId;
 module.exports.lessonHeading = lessonHeading;
+module.exports.lessonResearch = lessonResearch;
 module.exports.loadProductionAssets = loadProductionAssets;

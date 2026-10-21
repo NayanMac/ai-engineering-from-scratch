@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { stampCards } = require('../lib/og-cards');
 
-const HUB_DIRS = ['hubs/glossary', 'hubs/phase'];
+const HUB_DIRS = ['hubs', 'hubs/glossary', 'hubs/phase'];
 
 function versionHtml(html, siteRoot, versions = new Map()) {
   function versionTag(tag, attribute) {

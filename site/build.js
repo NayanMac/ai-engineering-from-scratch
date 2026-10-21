@@ -18,6 +18,7 @@ const { socialCards } = require('../lib/og-cards');
 const { phaseHubPath, phaseLabel, glossaryLookupKey } = require('../lib/hub-routes');
 const { writeHubs } = require('./build-hubs.js');
 const { writeCheatsheets, loadTopics, coverage } = require('./build-cheatsheets.js');
+const { writeResearch } = require('./build-research.js');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const README_PATH = path.join(REPO_ROOT, 'README.md');
@@ -2241,6 +2242,7 @@ function build() {
   const cheatsheets = writeCheatsheets({ siteDir: __dirname });
   hubs.cheatsheetPages = cheatsheets.pages;
   console.log(`   wrote ${cheatsheets.topics.length} cheat sheet posters`);
+  writeResearch({ lessonManifest: seoManifests.lessonManifest, topics: cheatsheets.topics });
   const glossaryPage = path.join(__dirname, 'glossary.html');
   replaceGeneratedDiscovery(glossaryPage, GLOSSARY_JSONLD_START, GLOSSARY_JSONLD_END, hubs.glossaryJsonLd);
   replaceGeneratedDiscovery(glossaryPage, GLOSSARY_INDEX_START, GLOSSARY_INDEX_END, hubs.glossaryIndex);
@@ -2354,6 +2356,7 @@ function writeSitemap(lessonManifest, glossaryCount, certifications, projects, h
     { loc: '/contact.html', priority: '0.3', freq: 'yearly' },
     { loc: '/privacy.html', priority: '0.3', freq: 'yearly' },
     { loc: '/sponsors.html', priority: '0.5', freq: 'monthly' },
+    { loc: '/research', priority: '0.6', freq: 'weekly' },
   ];
   if (glossaryCount > 0) urls.push({ loc: '/glossary.html', priority: '0.6', freq: 'monthly' });
   if (certifications && certifications.programs && certifications.programs.length) {
@@ -2476,6 +2479,7 @@ function writeLlms(phases, glossaryCount, artifactCount, certifications, lessonM
   out += `- [Catalog](${SITE_ORIGIN}/catalog.html) — full searchable lesson index\n`;
   out += `- [Blogs & Guides](${SITE_ORIGIN}/blogs) - articles and practical guides on AI engineering, developer tools, and building software\n`;
   out += `- [Roadmap](${SITE_ORIGIN}/roadmap) — prerequisite ordering across phases\n`;
+  out += `- [Research methods](${SITE_ORIGIN}/research) - find the lesson that builds a research method from scratch, with links to current papers and code on paperswithcode.co\n`;
   out += `- [AI Engineering Learning Paths](${SITE_ORIGIN}/learning-paths.html) — four core domain paths and six career routes connected to practical lessons\n`;
   if (glossaryCount > 0) out += `- [Glossary](${SITE_ORIGIN}/glossary.html) — plain-language definitions of ${glossaryCount} terms\n`;
   out += `- [Sponsor the project](${SITE_ORIGIN}/sponsors.html) — sponsorship tiers, rules, and current sponsors from SPONSORS.md\n`;

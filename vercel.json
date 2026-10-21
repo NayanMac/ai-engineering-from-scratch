@@ -168,6 +168,21 @@
       "destination": "/hubs/phase/:page.html"
     },
     {
+      "source": "/research",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "(?i).*text/markdown.*"
+        }
+      ],
+      "destination": "/agent-pages/research.md"
+    },
+    {
+      "source": "/research",
+      "destination": "/hubs/research.html"
+    },
+    {
       "source": "/cheatsheets",
       "destination": "/cheatsheets/index.html"
     },
@@ -456,7 +471,7 @@
       ]
     },
     {
-      "source": "/(blogs|glossary|catalog|certifications|certification|assessment|path|prereqs|roadmap|about|developer|docs|contact|privacy|sponsors|projects|project|learning-paths|developers|api|manuals|manual-[a-z0-9-]+)",
+      "source": "/(blogs|glossary|catalog|certifications|certification|assessment|path|prereqs|roadmap|about|developer|docs|contact|privacy|sponsors|projects|project|learning-paths|developers|api|manuals|research|manual-[a-z0-9-]+)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -537,7 +552,7 @@
   "functions": {
     "api/lesson.js": {
       "maxDuration": 10,
-      "includeFiles": "{site/lesson.html,site/lesson-seo.json,site/lesson-terms.json,site/cheatsheet-map.json,site/lesson-markdown.js,languages.json,phases/*/*/docs/en.md,certifications/*/lessons/*/docs/en.md,lib/og-render.js,lib/og-fonts/*.json}"
+      "includeFiles": "{site/lesson.html,site/lesson-seo.json,site/lesson-terms.json,site/cheatsheet-map.json,site/research-map.json,site/lesson-markdown.js,languages.json,phases/*/*/docs/en.md,certifications/*/lessons/*/docs/en.md,lib/og-render.js,lib/og-fonts/*.json}"
     },
     "api/certification.js": {
       "maxDuration": 10,
@@ -623,6 +638,11 @@
     {
       "source": "/hubs/phase/:page([a-z0-9-]+).html",
       "destination": "/phase/:page",
+      "permanent": true
+    },
+    {
+      "source": "/hubs/research.html",
+      "destination": "/research",
       "permanent": true
     },
     {

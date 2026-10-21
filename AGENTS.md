@@ -201,6 +201,10 @@ pipeline as well.
 
 A manual under `manuals/<id>/` explains one subject at one pinned version, built from offline captures and ranked sources. Read `manuals/AUTHORING.md` before writing one. `node scripts/audit_manuals.js` must report `TOTAL 0`: it checks section shape, prose limits, figure legibility, listing provenance, verbatim quotes, and capture drift. Commit one section per commit as `feat(manual/<id>): <section slug>`. Manuals stay outside the book and translation pipelines; their PDFs are release assets, never committed.
 
+### Research bridge
+
+`research/methods.json` links lessons, cheat sheet topics and (later) practice problems to method and task pages on paperswithcode.co. Add a link only when the lesson builds or explains that method as a main subject. Use the most specific slug, give each link a `why` of 120 characters or fewer, and keep at most 4 methods and 2 tasks for each lesson. A poster without its own entry takes the methods of the lessons that it covers. `research/paperswithcode-index.json` is the cached slug list from the site's sitemaps. `node scripts/research_bridge.js` checks the map against it. The weekly `research-bridge` workflow refreshes the cache and opens a pull request only when a mapped slug leaves the sitemap. The site never calls paperswithcode.co at runtime.
+
 ### code/
 
 - Runs end-to-end and exits 0 on the canonical command for the language.
