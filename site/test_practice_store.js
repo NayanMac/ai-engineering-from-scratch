@@ -156,3 +156,16 @@ test('dayKey uses the local calendar day', () => {
   assert.equal(Store.dayKey(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
   assert.equal(Store.dayKey(new Date(2026, 11, 31, 0, 1)), '2026-12-31');
 });
+
+test('a full storage keeps the newest progress and code in memory', () => {
+  const storage = memoryStorage();
+  const store = Store.create({ localStorage: storage, now: () => NOON });
+  store.saveCode('rope', 'old');
+  store.record('rope', 'run', 0, 1);
+  storage.setItem = () => { throw new Error('quota'); };
+  store.record('rope', 'submit', 5, 5);
+  assert.equal(store.writable(), false);
+  assert.equal(store.status('rope'), 'solved');
+  assert.equal(store.saveCode('rope', 'new'), false);
+  assert.equal(store.loadCode('rope'), 'new');
+});

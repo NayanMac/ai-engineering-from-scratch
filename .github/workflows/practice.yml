@@ -12,6 +12,7 @@ on:
       - 'site/practice-worker.js'
       - 'site/test_practice.js'
       - 'site/test_practice_store.js'
+      - 'research/methods.json'
       - '.github/workflows/practice.yml'
   push:
     branches: [main]
@@ -46,6 +47,8 @@ jobs:
         run: python3 -m pip install 'numpy>=2.2,<3'
       - name: Each solution passes, each starter and mutant fails, fixtures are current, no statement shows the solution
         run: python3 scripts/practice/validate.py --summary "$RUNNER_TEMP/practice.json"
+      - name: The harness reports diverging losses and contains exits from learner code
+        run: python3 scripts/practice/test_harness.py
       - name: Pages, run data and storage
         run: node --test site/test_practice.js site/test_practice_store.js
       - name: No page or run file shows the solution, same bytes twice

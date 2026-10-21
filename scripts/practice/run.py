@@ -83,7 +83,7 @@ def main(argv=None):
     code = args.code or str(problem / "starter.py")
     report = evaluate(problem, code, layers, args.limit or None)
     if args.json:
-        print(json.dumps(report, allow_nan=True))
+        print(json.dumps(report, allow_nan=False))
     else:
         print_report(report, meta)
     return 0 if report["summary"]["ok"] else 1

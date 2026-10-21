@@ -132,6 +132,7 @@
     }
 
     function load() {
+      if (!writable) return memory;
       var text = readRaw(STORAGE_KEY);
       if (text === null) return memory;
       try {
@@ -233,10 +234,12 @@
         check(id);
         var text = String(code == null ? '' : code).slice(0, MAX_CODE);
         memoryCode[id] = text;
-        return writeRaw(CODE_PREFIX + id, JSON.stringify({ code: text, savedAt: now() }));
+        writable = writeRaw(CODE_PREFIX + id, JSON.stringify({ code: text, savedAt: now() }));
+        return writable;
       },
       loadCode: function (id) {
         check(id);
+        if (own(memoryCode, id)) return memoryCode[id];
         var text = readRaw(CODE_PREFIX + id);
         if (text !== null) {
           try {

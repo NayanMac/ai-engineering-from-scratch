@@ -54,6 +54,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         if: steps.key.outputs.ready == 'true'
         with:
@@ -136,5 +137,5 @@ jobs:
           node scripts/practice/report.js "$RUNNER_TEMP/summary.json" --pr > "$RUNNER_TEMP/body.md"
           node scripts/practice/report.js "$RUNNER_TEMP/summary.json" --commit > "$RUNNER_TEMP/commit.txt"
           git commit -q -F "$RUNNER_TEMP/commit.txt"
-          git push -q origin "$branch"
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           gh pr create --base main --head "$branch" --title "feat(practice): new problems" --body-file "$RUNNER_TEMP/body.md"

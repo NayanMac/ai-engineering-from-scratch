@@ -219,7 +219,7 @@ function stage(files, id, root) {
 function gateDraft({ files, id, root = ROOT, python = pythonBin() }) {
   const { dir, folder } = stage(files, id, root);
   try {
-    const done = spawnSync(python, [path.join(dir, 'scripts', 'practice', 'validate.py'), id, '--write'], { cwd: dir, encoding: 'utf8', timeout: GATE_TIMEOUT_MS, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+    const done = spawnSync(python, [path.join(dir, 'scripts', 'practice', 'validate.py'), id, '--write'], { cwd: dir, encoding: 'utf8', timeout: GATE_TIMEOUT_MS, env: { PATH: process.env.PATH || '', HOME: process.env.HOME || '', PYTHONDONTWRITEBYTECODE: '1' } });
     const output = `${done.stdout || ''}${done.stderr || ''}`;
     if (done.error) return { ok: false, problems: [`the validator did not run: ${done.error.message}`], output };
     if (done.status === 0) {

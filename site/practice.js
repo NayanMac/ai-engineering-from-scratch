@@ -440,18 +440,18 @@
       if (!points.length) return;
       figure.hidden = false;
       var maxStep = points[points.length - 1][0] || 1;
-      var values = points.map(function (point) { return point[1]; }).filter(function (value) { return isFinite(value); });
+      var values = points.map(function (point) { return point[1]; }).filter(function (value) { return typeof value === 'number' && isFinite(value); });
       if (!values.length) return;
       var top = Math.max.apply(null, values);
       var bottom = Math.min.apply(null, values);
       var span = top - bottom || 1;
-      line.setAttribute('points', points.filter(function (point) { return isFinite(point[1]); }).map(function (point) {
+      line.setAttribute('points', points.filter(function (point) { return typeof point[1] === 'number' && isFinite(point[1]); }).map(function (point) {
         var x = (point[0] / maxStep) * 400;
         var y = 116 - ((point[1] - bottom) / span) * 112;
         return x.toFixed(1) + ',' + y.toFixed(1);
       }).join(' '));
       var last = points[points.length - 1];
-      label.textContent = 'step ' + last[0] + ', ' + last[2] + ' ' + Number(last[1]).toPrecision(4);
+      label.textContent = 'step ' + last[0] + ', ' + last[2] + ' ' + (typeof last[1] === 'number' && isFinite(last[1]) ? Number(last[1]).toPrecision(4) : 'not finite');
     }
 
     function schedule() {

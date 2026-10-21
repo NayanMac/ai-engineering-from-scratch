@@ -92,6 +92,9 @@ function metaErrors(meta, id) {
   if (!Array.isArray(meta.tags) || !meta.tags.every(tag => ID.test(tag))) errors.push(`${id}: tags must be lower case hyphenated words`);
   if (!Array.isArray(meta.collections)) errors.push(`${id}: collections must be a list`);
   if (!/^phases\/\d\d-[a-z0-9-]+\/\d\d-[a-z0-9-]+$/.test(meta.lesson)) errors.push(`${id}: lesson must be phases/NN-phase/MM-lesson`);
+  if (!Number.isInteger(meta.minutes) || !Number.isFinite(meta.time_limit_s)) errors.push(`${id}: minutes and time_limit_s must be numbers`);
+  if (meta.kind === 'train' && !(meta.budget && Number.isInteger(meta.budget.steps) && meta.target && Number.isFinite(meta.target.value))) errors.push(`${id}: a train task needs budget.steps and target.value numbers`);
+  if (meta.kind === 'research' && meta.paper && !Number.isInteger(meta.paper.year)) errors.push(`${id}: paper.year must be a number`);
   return errors;
 }
 
@@ -149,6 +152,7 @@ function loadPractice(root = REPO_ROOT) {
   const problems = problemDirs(root).map(id => loadProblem(root, id));
   const errors = problems.flatMap(problem => problem.errors);
   const known = new Set(collections.map(item => item.id));
+  for (const item of collections) if (!ID.test(item.id || '')) errors.push(`collection id ${JSON.stringify(item.id)} must be lower case words joined by hyphens`);
   for (const problem of problems) {
     if (!problem.meta) continue;
     for (const name of problem.meta.collections) if (!known.has(name)) errors.push(`${problem.id}: unknown collection ${name}`);
@@ -278,7 +282,7 @@ function problemMain(problem, built, assets) {
   const statement = `<section class="pr-statement" aria-labelledby="statement"><h2 id="statement" class="pr-visually-hidden">Problem</h2>${problem.statementHtml}${meta.kind === 'research' ? citationHtml(meta.paper) : ''}</section>`;
   const hints = `<section class="pr-panel pr-hints" aria-labelledby="hints"><div class="pr-panel-head"><h2 id="hints">Hints</h2><span class="pr-panel-count" data-hint-count>${problem.hintsHtml.length} hints</span></div><ol class="pr-hint-list" data-hints></ol><button class="pr-btn" type="button" data-hint-next>Show hint 1 of ${problem.hintsHtml.length}</button></section>`;
   const solution = `<section class="pr-panel pr-solution" aria-labelledby="solution"><div class="pr-panel-head"><h2 id="solution">Solution and notes</h2><span class="pr-lock" data-lock>Locked</span></div><p class="pr-locked-note" data-locked-note>Pass every check with Submit to open the reference solution and the notes.</p><div data-solution hidden></div></section>`;
-  const support = problem.files['support.py'] ? `<details class="pr-panel pr-support"><summary>Provided code: support.py</summary><p>Your code and the checks import this module with <code>from support import ...</code>. You do not change it.</p><pre class="pr-support-code"><code>${markdown.highlightSyntax(escapeHtml(problem.files['support.py']), 'python')}</code></pre></details>` : '';
+  const support = problem.files['support.py'] ? `<details class="pr-panel pr-support"><summary>Provided code: support.py</summary><p>Your code and the checks import this module with <code>from support import ...</code>. You do not change it.</p><pre class="pr-support-code"><code>${markdown.highlightSyntax(problem.files['support.py'].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), 'python')}</code></pre></details>` : '';
   const local = `<details class="pr-panel pr-local"><summary>Run it on your computer</summary><p>Clone the repository, install numpy and run the same checks in a terminal:</p><pre><code>python3 scripts/practice/run.py ${meta.id} my_answer.py\npython3 scripts/practice/run.py ${meta.id} my_answer.py --examples</code></pre><p>Start <code>my_answer.py</code> from <a href="${REPO}/blob/main/practice/${meta.id}/starter.py">starter.py</a>.</p></details>`;
   const pager = `<nav class="pr-pager" aria-label="Problem navigation">${previous ? `<a href="${previous.href}" rel="prev">← ${escapeHtml(previous.meta.title)}</a>` : '<span></span>'}<a href="${BASE}">All problems</a>${next ? `<a href="${next.href}" rel="next">${escapeHtml(next.meta.title)} →</a>` : '<span></span>'}</nav>`;
   const shortcuts = '<details class="pr-keys"><summary>Keyboard shortcuts</summary><dl><dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Run the examples</dd><dt><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Enter</kbd></dt><dd>Submit</dd><dt><kbd>Tab</kbd> / <kbd>Shift</kbd> <kbd>Tab</kbd></dt><dd>Indent or outdent the lines</dd><dt><kbd>Esc</kbd> then <kbd>Tab</kbd></dt><dd>Move the focus out of the editor</dd><dt><kbd>Alt</kbd> <kbd>H</kbd></dt><dd>Show the next hint</dd></dl><p>On a Mac, use <kbd>Cmd</kbd> in place of <kbd>Ctrl</kbd>.</p></details>';

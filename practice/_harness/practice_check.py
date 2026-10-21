@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import math
 import os
 import sys
 import time
@@ -68,10 +69,11 @@ def progress(name=None):
 
 
 def curve():
-    if len(_progress) <= MAX_CURVE:
-        return [list(point) for point in _progress]
-    stride = len(_progress) / MAX_CURVE
-    return [list(_progress[int(i * stride)]) for i in range(MAX_CURVE)] + [list(_progress[-1])]
+    points = [[step, value if math.isfinite(value) else None, name] for step, value, name in _progress]
+    if len(points) <= MAX_CURVE:
+        return points
+    stride = len(points) / MAX_CURVE
+    return [points[int(i * stride)] for i in range(MAX_CURVE)] + [points[-1]]
 
 
 def use_problem_dir(path):
@@ -295,7 +297,7 @@ def run_checks(submission, layers=None, deadline=None):
         except NotImplementedError:
             result["status"] = "fail"
             result["message"] = "Not implemented yet. Replace the raise NotImplementedError line with your code."
-        except Exception as error:
+        except BaseException as error:
             result["status"] = "error"
             result["message"] = user_trace(error)
         result["ms"] = round((time.monotonic() - started) * 1000, 1)

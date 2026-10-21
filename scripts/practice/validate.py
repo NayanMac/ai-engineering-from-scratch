@@ -193,6 +193,9 @@ def shape_problems(problem):
             found.append(f"problem.md needs the section {heading!r}")
     if re.search(r"^# ", statement, flags=re.M):
         found.append("problem.md must not have a level 1 heading. The page uses the title from meta.json")
+    for name in ("hints.md", "notes.md", "problem.md"):
+        if re.search(r"\]\(\s*https?:", (problem / name).read_text()) or re.search(r"<a\s", (problem / name).read_text()):
+            found.append(f"{name} links to another site. Keep the text on this site; a research task cites its paper in meta.json")
     hints = hint_list((problem / "hints.md").read_text())
     if not MIN_HINTS <= len(hints) <= MAX_HINTS:
         found.append(f"hints.md needs {MIN_HINTS} to {MAX_HINTS} hints, each under a ## heading")
@@ -300,6 +303,8 @@ def validate(problem, collections, write=False, log=print):
         found.append(f"solution.py did not finish: {error}")
     elif not report["summary"]["ok"]:
         found.append(f"solution.py fails: {', '.join(failing(report))}")
+    elif elapsed > limit / 3:
+        found.append(f"solution.py takes {elapsed:.1f}s. The browser is slower, so it must finish in a third of the {limit}s limit")
     report, _, error = run_candidate(problem, problem / "starter.py", limit)
     if not error and report["summary"]["ok"]:
         found.append("starter.py passes every check. The starter must fail")
