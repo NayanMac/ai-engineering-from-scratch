@@ -2447,10 +2447,16 @@ function hubLlms(hubs) {
   out += `\n## Glossary term pages\n`;
   out += `${hubs.termPages.length} glossary terms have their own page at ${SITE_ORIGIN}/glossary/<term slug>. [Glossary term sitemap](${SITE_ORIGIN}/sitemap-glossary.xml)\n\n`;
   if (hubs.practice && hubs.practice.problems.length) {
-    out += `## Practice problems\n`;
-    out += `${hubs.practice.problems.length} practice problems ask the learner to write code from a lesson and check it with Python and numpy in the browser. Each page holds the statement only. The checks are in the repository under practice/<id>/, and \`python3 scripts/practice/run.py <id> <file>\` runs them offline. [Practice sitemap](${SITE_ORIGIN}/sitemap-practice.xml)\n\n`;
-    for (const problem of hubs.practice.problems) out += `- [${problem.meta.title}](${SITE_ORIGIN}${problem.href}) (${problem.meta.difficulty}): ${problem.meta.summary} From [${problem.lessonTitle}](${SITE_ORIGIN}/lesson?path=${encodeURIComponent(problem.meta.lesson)})\n`;
-    out += `\n`;
+    const labels = { implement: 'Implement', research: 'Research', train: 'Train', lab: 'Lab' };
+    out += `## Practice tasks\n`;
+    out += `${hubs.practice.problems.length} practice tasks ask the learner to implement code from a lesson, implement a method from a research paper, train a tiny model to a target, or run an experiment and answer with numbers. Python with numpy runs the checks in the browser. Each page holds the statement only, and each task page returns Markdown with Accept: text/markdown. [Practice index in Markdown](${SITE_ORIGIN}/agent-pages/practice/index.md) \`python3 scripts/practice/run.py <id> <file>\` runs the checks offline. [Practice sitemap](${SITE_ORIGIN}/sitemap-practice.xml)\n\n`;
+    for (const kind of Object.keys(labels)) {
+      const list = hubs.practice.problems.filter(problem => problem.meta.kind === kind);
+      if (!list.length) continue;
+      out += `### ${labels[kind]}\n\n`;
+      for (const problem of list) out += `- [${problem.meta.title}](${SITE_ORIGIN}${problem.href}) (${problem.meta.difficulty}): ${problem.meta.summary} From [${problem.lessonTitle}](${SITE_ORIGIN}/lesson?path=${encodeURIComponent(problem.meta.lesson)})\n`;
+      out += `\n`;
+    }
   }
   return out;
 }

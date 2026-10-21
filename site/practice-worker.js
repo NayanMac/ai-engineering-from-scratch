@@ -50,17 +50,31 @@ function run(message) {
       var fs = pyodide.FS;
       fs.writeFile(DIR + '/practice_check.py', harnessText);
       fs.writeFile(DIR + '/practice_tests.py', message.tests);
+      if (message.support) fs.writeFile(DIR + '/support.py', message.support);
+      else if (fs.analyzePath(DIR + '/support.py').exists) fs.unlink(DIR + '/support.py');
       pyodide.globals.set('practice_source', message.code);
       pyodide.globals.set('practice_fixtures', message.fixtures || '');
       pyodide.globals.set('practice_layers', (message.layers || []).join(','));
       pyodide.globals.set('practice_limit', Number(message.limit) || 0);
-      var text = pyodide.runPython([
-        'import sys',
-        'for _name in ("practice_check", "practice_tests", "submission"):',
-        '    sys.modules.pop(_name, None)',
-        'import practice_check',
-        'practice_check.evaluate_json(practice_source, "' + DIR + '/practice_tests.py", practice_fixtures, practice_layers, practice_limit)'
-      ].join('\n'));
+      pyodide.globals.set('practice_sink', function (step, value, name) {
+        post({ type: 'progress', id: message.id, step: step, value: value, name: name });
+      });
+      var text;
+      try {
+        text = pyodide.runPython([
+          'import sys',
+          'for _name in ("practice_check", "practice_tests", "submission", "support"):',
+          '    sys.modules.pop(_name, None)',
+          'import practice_check',
+          'practice_check.set_sink(practice_sink)',
+          'practice_check.evaluate_json(practice_source, "' + DIR + '/practice_tests.py", practice_fixtures, practice_layers, practice_limit)'
+        ].join('\n'));
+      } finally {
+        pyodide.runPython('import practice_check\npractice_check.set_sink(None)');
+        var sink = pyodide.globals.get('practice_sink');
+        if (sink && sink.destroy) sink.destroy();
+        pyodide.globals.delete('practice_sink');
+      }
       var report = JSON.parse(text);
       report.ms = Date.now() - started;
       return report;

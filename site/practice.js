@@ -113,7 +113,7 @@
     var count = $('[data-count]', main);
     var empty = $('[data-empty]', main);
     var ids = rows.map(function (row) { return row.getAttribute('data-id'); });
-    var fields = ['q', 'difficulty', 'status', 'phase', 'track', 'tag'];
+    var fields = ['q', 'kind', 'difficulty', 'status', 'phase', 'track', 'tag'];
 
     function values() {
       var data = {};
@@ -130,6 +130,7 @@
     }
 
     function matches(row, data) {
+      if (data.kind && row.getAttribute('data-kind') !== data.kind) return false;
       if (data.difficulty && row.getAttribute('data-difficulty') !== data.difficulty) return false;
       if (data.phase && row.getAttribute('data-phase') !== data.phase) return false;
       if (data.track && (' ' + row.getAttribute('data-tracks') + ' ').indexOf(' ' + data.track + ' ') < 0) return false;
@@ -338,7 +339,7 @@
     };
   }
 
-  function createRunner(main, onStatus) {
+  function createRunner(main, onStatus, onProgress) {
     var worker = null;
     var pending = null;
     var ready = false;
@@ -378,6 +379,10 @@
           return;
         }
         if (!pending || message.id !== pending.id) return;
+        if (message.type === 'progress') {
+          if (onProgress) onProgress(message);
+          return;
+        }
         if (message.type === 'result') finish({ report: message.report });
         else finish({ error: message.message });
       };
@@ -415,10 +420,60 @@
         var limit = Math.max(1, Number(job.limit) || 10) * 1000 + 1500;
         return new Promise(function (resolve) {
           pending = { id: id, resolve: resolve, limit: limit, timer: setTimeout(timeout, ready ? limit : BOOT_LIMIT_MS) };
-          worker.postMessage({ type: 'run', id: id, pyodide: pyodide, harness: harness, tests: job.tests, fixtures: job.fixtures, code: job.code, layers: job.layers, limit: job.limit });
+          worker.postMessage({ type: 'run', id: id, pyodide: pyodide, harness: harness, tests: job.tests, fixtures: job.fixtures, support: job.support || '', code: job.code, layers: job.layers, limit: job.limit });
         });
       },
       busy: function () { return !!pending; }
+    };
+  }
+
+  function createCurve(figure) {
+    var points = [];
+    var frame = 0;
+    var MAX = 600;
+    if (!figure) return { add: function () {}, reset: function () {}, replace: function () {} };
+    var line = $('[data-curve-line]', figure);
+    var label = $('[data-curve-label]', figure);
+
+    function draw() {
+      frame = 0;
+      if (!points.length) return;
+      figure.hidden = false;
+      var maxStep = points[points.length - 1][0] || 1;
+      var values = points.map(function (point) { return point[1]; }).filter(function (value) { return isFinite(value); });
+      if (!values.length) return;
+      var top = Math.max.apply(null, values);
+      var bottom = Math.min.apply(null, values);
+      var span = top - bottom || 1;
+      line.setAttribute('points', points.filter(function (point) { return isFinite(point[1]); }).map(function (point) {
+        var x = (point[0] / maxStep) * 400;
+        var y = 116 - ((point[1] - bottom) / span) * 112;
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' '));
+      var last = points[points.length - 1];
+      label.textContent = 'step ' + last[0] + ', ' + last[2] + ' ' + Number(last[1]).toPrecision(4);
+    }
+
+    function schedule() {
+      if (!frame) frame = requestAnimationFrame(draw);
+    }
+
+    return {
+      add: function (message) {
+        if (points.length && points[0][2] !== message.name) return;
+        points.push([message.step, message.value, message.name]);
+        if (points.length > MAX) points = points.filter(function (_, index) { return index % 2 === 0; });
+        schedule();
+      },
+      reset: function () {
+        points = [];
+        line.setAttribute('points', '');
+        label.textContent = '';
+      },
+      replace: function (list) {
+        points = list.filter(function (point) { return point[2] === (list[0] && list[0][2]); }).slice(-MAX);
+        schedule();
+      }
     };
   }
 
@@ -521,7 +576,8 @@
       runtimeLabel.setAttribute('data-phase', phase);
     }
 
-    var runner = createRunner(main, paintRuntime);
+    var curve = createCurve($('[data-curve]', main));
+    var runner = createRunner(main, paintRuntime, curve.add);
 
     function setBusy(busy, label) {
       runButton.disabled = busy;
@@ -536,7 +592,8 @@
       persist(code);
       setBusy(true, kind === 'submit' ? 'Running every check' : 'Running the examples');
       data().then(function (problem) {
-        return runner.run({ tests: problem.tests, fixtures: problem.fixtures, code: code, layers: kind === 'submit' ? [] : ['examples'], limit: problem.limit || limit });
+        curve.reset();
+        return runner.run({ tests: problem.tests, fixtures: problem.fixtures, support: problem.support, code: code, layers: kind === 'submit' ? [] : ['examples'], limit: problem.limit || limit });
       }).then(function (outcome) {
         setBusy(false);
         if (outcome.busy) return;
@@ -551,6 +608,7 @@
           return;
         }
         var report = outcome.report;
+        if (report.curve && report.curve.length) curve.replace(report.curve);
         results.innerHTML = reportHtml(report, kind);
         var firstFail = results.querySelector('.pr-res-fail, .pr-res-error');
         results.scrollTop = firstFail && kind === 'submit' ? Math.max(0, firstFail.offsetTop - 48) : 0;

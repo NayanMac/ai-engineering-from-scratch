@@ -58,9 +58,9 @@ test('a problem page holds the statement, the starter, the source lesson and its
 test('the list page has a row for each problem with the filter data', () => {
   const html = page('/practice').html;
   for (const problem of built.problems) {
-    assert.ok(html.includes(`data-id="${problem.id}" data-difficulty="${problem.meta.difficulty}" data-phase="${problem.phase.number}"`), problem.id);
+    assert.ok(html.includes(`data-id="${problem.id}" data-kind="${problem.meta.kind}" data-difficulty="${problem.meta.difficulty}" data-phase="${problem.phase.number}"`), problem.id);
   }
-  for (const name of ['q', 'difficulty', 'status', 'phase', 'track', 'tag']) assert.match(html, new RegExp(`name="${name}"`));
+  for (const name of ['q', 'kind', 'difficulty', 'status', 'phase', 'track', 'tag']) assert.match(html, new RegExp(`name="${name}"`));
   assert.match(html, /data-random/);
   assert.match(html, /data-continue/);
   assert.match(html, /"@type":"ItemList"/);
@@ -127,8 +127,8 @@ test('two builds give the same bytes', () => {
 test('clean URLs route to the practice pages and the run data is not indexed', () => {
   const rewrites = config.rewrites.map(rule => `${rule.source} ${rule.destination}`);
   assert.ok(rewrites.includes('/practice /practice/index.html'));
-  assert.ok(rewrites.includes('/practice/:problem([a-z0-9-]+) /practice/:problem.html'));
-  assert.ok(rewrites.includes('/practice/tracks/:track([a-z0-9-]+) /practice/tracks/:track.html'));
+  assert.ok(rewrites.includes('/practice/:page([a-z0-9-]+) /practice/:page.html'));
+  assert.ok(rewrites.includes('/practice/tracks/:page([a-z0-9-]+) /practice/tracks/:page.html'));
   const data = config.headers.find(rule => rule.source === '/practice/data/:path*');
   assert.ok(data.headers.some(header => header.key === 'X-Robots-Tag' && header.value === 'noindex'));
   assert.ok(config.functions['api/lesson.js'].includeFiles.includes('site/practice-map.json'));
@@ -146,4 +146,63 @@ test('the worker loads Pyodide as a module from the pinned version', () => {
   assert.equal(/importScripts/.test(worker), false);
   assert.match(fs.readFileSync(path.join(__dirname, 'practice.js'), 'utf8'), /new Worker\(workerUrl, \{ type: 'module' \}\)/);
   assert.equal(practice.PYODIDE_VERSION, '314.0.7');
+});
+
+test('each kind of task is present and every page carries its kind', () => {
+  const kinds = new Set(built.problems.map(problem => problem.meta.kind));
+  for (const kind of ['implement', 'research', 'train', 'lab']) assert.ok(kinds.has(kind), kind);
+  for (const problem of built.problems) {
+    const html = page(problem.href).html;
+    assert.ok(html.includes(`data-kind="${problem.meta.kind}"`), problem.id);
+    if (problem.meta.kind === 'train') assert.match(html, /data-curve/);
+  }
+});
+
+test('only research pages link out, once, with nofollow and below the statement', () => {
+  const allowed = /^https:\/\/(?:aiengineeringfromscratch\.com\/|github\.com\/rohitg00\/ai-engineering-from-scratch(?:\/|$)|fonts\.googleapis\.com\/)/;
+  for (const item of built.pages) {
+    const outbound = Array.from(item.html.matchAll(/<a\b[^>]*href="(https?:[^"]+)"[^>]*>/g)).filter(match => !allowed.test(match[1]));
+    const problem = built.problems.find(entry => entry.href === item.href);
+    if (!problem || problem.meta.kind !== 'research') {
+      assert.deepEqual(outbound.map(match => match[1]), [], item.href);
+      continue;
+    }
+    assert.equal(outbound.length, 1, item.href);
+    assert.match(outbound[0][1], /^https:\/\/arxiv\.org\/abs\/\d{4}\.\d{4,5}$/);
+    assert.match(outbound[0][0], /rel="nofollow noopener external"/);
+    const statementEnd = item.html.indexOf('</section>', item.html.indexOf('class="pr-statement"'));
+    assert.ok(item.html.indexOf(outbound[0][0]) > item.html.indexOf('<h2 id="task"') && item.html.indexOf(outbound[0][0]) < statementEnd, item.href);
+    const head = item.html.slice(0, item.html.indexOf('</head>'));
+    assert.equal(head.includes('arxiv.org'), item.html.includes('"citation"'), 'only the JSON-LD citation may name the paper url in the head');
+    assert.equal(/<title>[^<]*arxiv/i.test(head) || /name="description" content="[^"]*arxiv/i.test(head), false);
+  }
+});
+
+test('structured data describes each task and the list', () => {
+  for (const problem of built.problems) {
+    const ld = JSON.parse(page(problem.href).html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
+    assert.equal(ld['@type'], 'LearningResource');
+    assert.ok(ld.educationalLevel && Array.isArray(ld.teaches) && ld.teaches.length > 0, problem.id);
+    assert.equal(ld.url, `https://aiengineeringfromscratch.com${problem.href}`);
+    assert.equal(Boolean(ld.citation), problem.meta.kind === 'research');
+  }
+  const list = JSON.parse(page('/practice').html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
+  assert.equal(list['@type'], 'ItemList');
+  assert.equal(list.itemListElement.length, built.problems.length);
+});
+
+test('answer engines get a Markdown page for the list, each track and each task, without the solution', () => {
+  assert.ok(built.markdown.get('index.md').includes('## Research'));
+  for (const track of built.tracks) assert.ok(built.markdown.has(`tracks/${track.id}.md`));
+  for (const problem of built.problems) {
+    const md = built.markdown.get(`${problem.id}.md`);
+    assert.ok(md.startsWith(`# ${problem.meta.title}\n\nCanonical page: https://aiengineeringfromscratch.com${problem.href}`), problem.id);
+    assert.ok(md.includes('## Task'));
+    assert.equal(md.includes(problem.files['solution.py'].trim()), false);
+    assert.equal(/\]\(https?:\/\/(?!aiengineeringfromscratch\.com)/.test(md), false, `${problem.id} links out`);
+  }
+  const markdownRule = config.rewrites.find(rule => rule.source === '/practice/:page([a-z0-9-]+)' && rule.has);
+  const htmlRule = config.rewrites.findIndex(rule => rule.source === '/practice/:page([a-z0-9-]+)' && !rule.has);
+  assert.equal(markdownRule.destination, '/agent-pages/practice/:page.md');
+  assert.ok(config.rewrites.indexOf(markdownRule) < htmlRule);
 });

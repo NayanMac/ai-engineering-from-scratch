@@ -176,16 +176,38 @@
       "destination": "/cheatsheets/:topic.html"
     },
     {
+      "source": "/practice/tracks/:page([a-z0-9-]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "(?i).*text/markdown.*"
+        }
+      ],
+      "destination": "/agent-pages/practice/tracks/:page.md"
+    },
+    {
+      "source": "/practice/:page([a-z0-9-]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "(?i).*text/markdown.*"
+        }
+      ],
+      "destination": "/agent-pages/practice/:page.md"
+    },
+    {
       "source": "/practice",
       "destination": "/practice/index.html"
     },
     {
-      "source": "/practice/tracks/:track([a-z0-9-]+)",
-      "destination": "/practice/tracks/:track.html"
+      "source": "/practice/tracks/:page([a-z0-9-]+)",
+      "destination": "/practice/tracks/:page.html"
     },
     {
-      "source": "/practice/:problem([a-z0-9-]+)",
-      "destination": "/practice/:problem.html"
+      "source": "/practice/:page([a-z0-9-]+)",
+      "destination": "/practice/:page.html"
     },
     {
       "source": "/roadmap",
@@ -495,6 +517,10 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Vary",
+          "value": "Accept, Accept-Encoding"
         }
       ]
     },
@@ -569,6 +595,19 @@
     },
     {
       "source": "/agent-pages/:page.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/agent-pages/practice/:path*",
       "headers": [
         {
           "key": "Content-Type",
@@ -683,13 +722,13 @@
       "permanent": true
     },
     {
-      "source": "/practice/tracks/:track([a-z0-9-]+).html",
-      "destination": "/practice/tracks/:track",
+      "source": "/practice/tracks/:page([a-z0-9-]+).html",
+      "destination": "/practice/tracks/:page",
       "permanent": true
     },
     {
-      "source": "/practice/:problem([a-z0-9-]+).html",
-      "destination": "/practice/:problem",
+      "source": "/practice/:page([a-z0-9-]+).html",
+      "destination": "/practice/:page",
       "permanent": true
     },
     {
