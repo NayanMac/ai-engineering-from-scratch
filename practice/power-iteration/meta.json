@@ -1,6 +1,7 @@
 {
   "id": "power-iteration",
   "title": "Power iteration for the top eigenpair",
+  "kind": "implement",
   "summary": "The top eigenvalue and eigenvector of a symmetric matrix by power iteration, with a tolerance, an iteration limit and a sign rule.",
   "difficulty": "medium",
   "tags": ["eigenvalues", "power-iteration", "linear-algebra", "svd"],

@@ -29,7 +29,10 @@ META_KEYS = {
     "collections": list,
     "time_limit_s": (int, float),
     "mutants": dict,
+    "kind": str,
 }
+KINDS = ("implement", "research", "train", "lab")
+ARXIV = re.compile(r"^https://arxiv\.org/abs/\d{4}\.\d{4,5}$")
 SECTIONS = ("## Task", "## Input and output", "## Constraints", "## Examples")
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LEAK_MIN = 18
@@ -76,6 +79,7 @@ def meta_problems(problem, meta, collections):
             found.append(f"meta.json {key!r} has the wrong type")
     if found:
         return found
+    found += kind_problems(problem, meta)
     if meta["id"] != problem.name:
         found.append(f"meta.json id {meta['id']!r} is not the folder name {problem.name!r}")
     if not ID_PATTERN.match(meta["id"]):
@@ -108,6 +112,42 @@ def meta_problems(problem, meta, collections):
     return found
 
 
+def load_methods():
+    path = ROOT / "research" / "methods.json"
+    return json.loads(path.read_text()) if path.exists() else {"methods": {}, "lessons": {}}
+
+
+def kind_problems(problem, meta):
+    found = []
+    kind = meta["kind"]
+    if kind not in KINDS:
+        return [f"kind must be one of {', '.join(KINDS)}"]
+    if kind == "research":
+        paper = meta.get("paper")
+        if not isinstance(paper, dict) or not all(isinstance(paper.get(key), str) and paper.get(key) for key in ("title", "authors", "url")) or not isinstance(paper.get("year"), int):
+            found.append("a research problem needs paper: title, authors, year and url")
+        elif not ARXIV.match(paper["url"]):
+            found.append("the paper url must be the arXiv abstract page, https://arxiv.org/abs/<id>")
+        methods = load_methods()
+        method = meta.get("method")
+        if method not in methods.get("methods", {}):
+            found.append(f"method {method!r} is not in research/methods.json")
+        elif not any(item.get("slug") == method for item in methods.get("lessons", {}).get(meta["lesson"], {}).get("methods", [])):
+            found.append(f"research/methods.json does not map {meta['lesson']} to the method {method!r}")
+    elif "paper" in meta or "method" in meta:
+        found.append("only a research problem has paper and method")
+    if kind == "train":
+        budget = meta.get("budget")
+        target = meta.get("target")
+        if not isinstance(budget, dict) or not isinstance(budget.get("steps"), int) or not 1 <= budget["steps"] <= 100000:
+            found.append("a train problem needs budget.steps from 1 to 100000")
+        if not isinstance(target, dict) or not isinstance(target.get("metric"), str) or not isinstance(target.get("value"), (int, float)):
+            found.append("a train problem needs target: metric and value")
+    elif "budget" in meta or "target" in meta:
+        found.append("only a train problem has budget and target")
+    return found
+
+
 def code_lines(text):
     lines = []
     for raw in text.splitlines():
@@ -125,6 +165,8 @@ def normalized(text):
 def leak_problems(problem):
     solution = code_lines((problem / "solution.py").read_text())
     starter = set(code_lines((problem / "starter.py").read_text()))
+    if (problem / "support.py").exists():
+        starter |= set(code_lines((problem / "support.py").read_text()))
     found = []
     statement = normalized((problem / "problem.md").read_text())
     body = [line for line in solution if line not in starter]
@@ -156,13 +198,14 @@ def shape_problems(problem):
         found.append(f"hints.md needs {MIN_HINTS} to {MAX_HINTS} hints, each under a ## heading")
     if "NotImplementedError" not in (problem / "starter.py").read_text():
         found.append("starter.py must raise NotImplementedError in each function the learner writes")
-    for name in ("starter.py", "solution.py", "tests.py") + tuple(f"mutants/{path.name}" for path in sorted((problem / "mutants").glob("*.py"))):
+    support = ("support.py",) if (problem / "support.py").exists() else ()
+    for name in ("starter.py", "solution.py", "tests.py") + support + tuple(f"mutants/{path.name}" for path in sorted((problem / "mutants").glob("*.py"))):
         text = (problem / name).read_text()
         if re.search(r"(^|\s)#", "\n".join(line for line in text.splitlines() if not re.search(r"[\"'].*#.*[\"']", line))):
             found.append(f"{name} has a code comment. Put explanations in problem.md, hints.md or notes.md")
         for module in re.findall(r"^\s*(?:import|from)\s+([A-Za-z_][\w.]*)", text, flags=re.M):
             base = module.split(".")[0]
-            if base not in {"numpy", "math", "json", "re", "collections", "copy", "heapq", "itertools", "functools", "practice_check", "dataclasses", "typing", "string"}:
+            if base not in {"numpy", "math", "json", "re", "collections", "copy", "heapq", "itertools", "functools", "practice_check", "dataclasses", "typing", "string", "support"}:
                 found.append(f"{name} imports {module}. The browser runner has numpy and the standard library only")
     return found
 
@@ -196,7 +239,7 @@ def entry_problems(problem, meta):
 
 def layer_problems(problem):
     practice_check.reset()
-    practice_check.load_module(str(problem / "tests.py"), "practice_tests")
+    practice_check.load_tests(str(problem / "tests.py"))
     layers = {item["layer"] for item in practice_check._checks}
     found = [f"tests.py has no check in the layer {layer!r}" for layer in practice_check.LAYERS if layer not in layers]
     names = [item["name"] for item in practice_check._checks]
@@ -221,7 +264,7 @@ def same(a, b):
 
 def fixture_problems(problem, write):
     practice_check.reset()
-    practice_check.load_module(str(problem / "tests.py"), "practice_tests")
+    practice_check.load_tests(str(problem / "tests.py"))
     reference = practice_check.load_module(str(problem / "solution.py"), "practice_reference")
     built = practice_check.build_fixtures(reference)
     path = problem / "fixtures.json"

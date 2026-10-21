@@ -1,6 +1,7 @@
 {
   "id": "bm25",
   "title": "BM25 ranking",
+  "kind": "implement",
   "summary": "Score tokenized documents against a query with BM25: the lesson idf, term frequency saturation with k1, length normalization with b, and a ranked list.",
   "difficulty": "medium",
   "tags": ["bm25", "information-retrieval", "sparse-retrieval", "ranking"],

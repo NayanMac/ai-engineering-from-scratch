@@ -1,6 +1,7 @@
 {
   "id": "discounted-returns",
   "title": "Discounted returns with episode ends",
+  "kind": "implement",
   "summary": "Reward-to-go returns for one episode and for a batch of joined episodes with done flags, plus return normalization.",
   "difficulty": "easy",
   "tags": ["reinforcement-learning", "returns", "policy-gradients"],

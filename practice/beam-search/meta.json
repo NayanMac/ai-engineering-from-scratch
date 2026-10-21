@@ -1,6 +1,7 @@
 {
   "id": "beam-search",
   "title": "Beam search with EOS and length normalization",
+  "kind": "implement",
   "summary": "Keep the best beam_width partial sequences over a step function, finish beams at EOS, and rank them with a length penalty.",
   "difficulty": "hard",
   "tags": [

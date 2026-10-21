@@ -1,6 +1,7 @@
 {
   "id": "bpe-merge-step",
   "title": "BPE pair counts and merges",
+  "kind": "implement",
   "summary": "Count weighted adjacent pairs, pick the best pair with a fixed tie rule, merge it without overlap and train a BPE merge list.",
   "difficulty": "medium",
   "tags": ["tokenization", "bpe", "subword"],

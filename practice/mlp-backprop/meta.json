@@ -1,6 +1,7 @@
 {
   "id": "mlp-backprop",
   "title": "Backpropagation through a two-layer MLP",
+  "kind": "implement",
   "summary": "Forward pass with a cache and a backward pass that returns the gradient of every weight and bias of a two-layer sigmoid network.",
   "difficulty": "hard",
   "tags": ["backpropagation", "gradients", "mlp", "chain-rule"],

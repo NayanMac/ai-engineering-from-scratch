@@ -19,6 +19,7 @@ practice/<id>/
   hints.md         2 to 5 hints, from a nudge to the key idea
   notes.md         what to know after a pass: why it works, where it goes next
   mutants/*.py     3 to 6 wrong solutions that the checks must reject
+  support.py       optional: data or helper code that the learner and the checks import
 ```
 
 The site shows `problem.md` and the starter on the page. It loads the checks and the hints when the learner runs the code. It loads `solution.py` and `notes.md` only after the learner passes every check.
@@ -56,6 +57,48 @@ The site shows `problem.md` and the starter on the page. It loads the checks and
 | `collections` | ids from `practice/collections.json` |
 | `time_limit_s` | the limit for one full submit, 1 to 30 seconds |
 | `mutants` | one line for each file in `mutants/`: the bug that the file has |
+| `kind` | `implement`, `research`, `train` or `lab`. See the next section |
+
+## Four kinds of task
+
+All four kinds use the same folder, the same four layers of checks, mutants and the same validator. They differ in what the learner writes and in what the checks measure.
+
+| Kind | The learner | The checks |
+|---|---|---|
+| `implement` | writes a function or a small class that a lesson builds | compare the output with the examples, with properties and with the reference |
+| `research` | writes the core method of one paper | test the equations and the properties that the paper states, and compare with the reference |
+| `train` | writes a training loop for a tiny model, with a seed and a step budget | measure the trained model on a held-out set that the learner does not see |
+| `lab` | runs a short experiment: changes one variable, measures, and returns the answers to the questions | compare each answer with the answer that the reference run gives |
+
+### Research
+
+Pick the method from `research/methods.json`. The method slug goes in `meta.json` as `method`, and the file must map the lesson in `lesson` to that slug. Add the paper:
+
+```json
+"method": "direct-preference-optimization-dpo",
+"paper": {"title": "Direct Preference Optimization: Your Language Model is Secretly a Reward Model", "authors": "Rafailov et al.", "year": 2023, "url": "https://arxiv.org/abs/2305.18290"}
+```
+
+The url is the arXiv abstract page and nothing else. The page shows it as one citation below the statement. Write the statement in our own words. Give the equations that the learner implements, and write checks for the properties that the paper states, for example "the loss is log 2 when the policy equals the reference".
+
+### Train
+
+The learner writes `train(...)` and the checks call it with a seeded `np.random.default_rng`. Add the budget and the target to `meta.json`:
+
+```json
+"budget": {"steps": 2000},
+"target": {"metric": "held-out accuracy", "value": 0.95}
+```
+
+- Put the data generator in `support.py`. The learner and the checks import it with `from support import ...`. The page shows `support.py` as provided code.
+- The learner calls `report(step, loss)` from `practice_check` during training. The page draws these points as a live loss curve.
+- Train once in the checks and keep the result in a module variable, so that each check does not train again.
+- The checks measure the model on a held-out set made with a seed that the statement does not give. They also check that the learner used at most `budget.steps` steps, that the same seed gives the same result, and that the inputs do not change.
+- The reference solution must reach the target with a margin. The mutants are realistic training bugs, for example a learning rate of the wrong sign, a missing bias update or no shuffle, and each one must miss the target or fail another check.
+
+### Lab
+
+A lab gives data or a simulator in `support.py` and asks two to five questions. The learner writes small functions and an `answers()` function that returns a dict of numbers, one for each question. The checks compare each answer with the answer of the reference run, with a stated tolerance, and test the helper functions on their own. Every expected answer must come from real data in the repository, for example `manuals/sglang-101/capture/gpu/summary/l4.json`, or from a run of `solution.py`. Copy the data that the lab needs into `support.py` and name the source file in `problem.md`.
 
 ## problem.md
 

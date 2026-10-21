@@ -1,6 +1,7 @@
 {
   "id": "logistic-regression",
   "title": "Logistic regression from scratch",
+  "kind": "implement",
   "summary": "A stable sigmoid, the binary cross-entropy loss and its gradient, and a gradient descent loop that records the loss.",
   "difficulty": "medium",
   "tags": ["logistic-regression", "classification", "gradients", "numerical-stability"],

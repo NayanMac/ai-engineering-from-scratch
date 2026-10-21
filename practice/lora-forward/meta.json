@@ -1,6 +1,7 @@
 {
   "id": "lora-forward",
   "title": "LoRA linear layer",
+  "kind": "implement",
   "summary": "Forward pass of a linear layer with a low rank adapter, merge of the adapter into the weight, and the trainable parameter count.",
   "difficulty": "easy",
   "tags": ["lora", "fine-tuning", "linear-algebra"],

@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import sys
 import time
 import traceback
@@ -19,10 +20,16 @@ LAYER_TITLES = {
 }
 MAX_TEXT = 1200
 MAX_OUTPUT = 4000
+MAX_PROGRESS = 5000
+MAX_CURVE = 400
+SUPPORT = "support"
 
 _checks = []
 _fixture_makers = {}
 _fixture_data = {}
+_progress = []
+_sink = [None]
+_problem_dir = [None]
 
 
 class CheckFailed(Exception):
@@ -37,6 +44,48 @@ def reset():
     _checks.clear()
     _fixture_makers.clear()
     _fixture_data.clear()
+    _progress.clear()
+
+
+def set_sink(fn):
+    _sink[0] = fn
+
+
+def report(step, value, name="loss"):
+    point = (int(step), float(value), str(name))
+    if len(_progress) < MAX_PROGRESS:
+        _progress.append(point)
+    if _sink[0] is not None:
+        _sink[0](point[0], point[1], point[2])
+
+
+def clear_progress():
+    _progress.clear()
+
+
+def progress(name=None):
+    return [point for point in _progress if name is None or point[2] == name]
+
+
+def curve():
+    if len(_progress) <= MAX_CURVE:
+        return [list(point) for point in _progress]
+    stride = len(_progress) / MAX_CURVE
+    return [list(_progress[int(i * stride)]) for i in range(MAX_CURVE)] + [list(_progress[-1])]
+
+
+def use_problem_dir(path):
+    path = os.path.abspath(path)
+    if _problem_dir[0] and _problem_dir[0] in sys.path:
+        sys.path.remove(_problem_dir[0])
+    sys.path.insert(0, path)
+    _problem_dir[0] = path
+    sys.modules.pop(SUPPORT, None)
+
+
+def load_tests(tests_path):
+    use_problem_dir(os.path.dirname(tests_path))
+    return load_module(tests_path, "practice_tests")
 
 
 def check(layer, name, explain):
@@ -269,7 +318,7 @@ def summary(results):
 
 def evaluate(source, tests_path, fixtures_data, layers=None, limit_s=None):
     reset()
-    load_module(tests_path, "practice_tests")
+    load_tests(tests_path)
     load_fixtures(fixtures_data)
     deadline = time.monotonic() + limit_s if limit_s else None
     output = io.StringIO()
@@ -283,7 +332,7 @@ def evaluate(source, tests_path, fixtures_data, layers=None, limit_s=None):
             results = [{"layer": item["layer"], "name": item["name"], "explain": item["explain"], "status": "error", "message": load_error, "expected": None, "actual": None} for item in selected(layers)]
         else:
             results = run_checks(submission, layers, deadline)
-    return {"results": results, "summary": summary(results), "load_error": load_error, "stdout": clip(output.getvalue()), "warnings": warning_list(caught)}
+    return {"results": results, "summary": summary(results), "load_error": load_error, "stdout": clip(output.getvalue()), "warnings": warning_list(caught), "curve": curve()}
 
 
 def warning_list(caught):

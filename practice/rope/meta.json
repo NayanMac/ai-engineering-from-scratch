@@ -1,6 +1,7 @@
 {
   "id": "rope",
   "title": "Rotary position embedding",
+  "kind": "implement",
   "summary": "Rotate adjacent coordinate pairs of queries and keys by position times base^(-2i/d), so attention scores depend only on the position gap.",
   "difficulty": "medium",
   "tags": ["positional-encoding", "rope", "transformers", "attention"],

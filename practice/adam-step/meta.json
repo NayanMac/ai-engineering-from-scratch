@@ -1,6 +1,7 @@
 {
   "id": "adam-step",
   "title": "Adam and AdamW step",
+  "kind": "implement",
   "summary": "One Adam update with bias correction and a step counter that starts at 1, plus AdamW decoupled weight decay, as a pure function of the state.",
   "difficulty": "medium",
   "tags": ["optimizers", "adam", "weight-decay"],

@@ -1,6 +1,7 @@
 {
   "id": "kv-cache-append",
   "title": "Fixed-capacity KV cache",
+  "kind": "implement",
   "summary": "Append keys and values to a preallocated cache, attend one query over the valid prefix, and reject an append past the capacity.",
   "difficulty": "medium",
   "tags": ["kv-cache", "attention", "inference", "transformers"],

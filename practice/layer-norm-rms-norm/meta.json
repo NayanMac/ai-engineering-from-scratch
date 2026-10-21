@@ -1,6 +1,7 @@
 {
   "id": "layer-norm-rms-norm",
   "title": "LayerNorm and RMSNorm",
+  "kind": "implement",
   "summary": "LayerNorm with gamma and beta and RMSNorm with a weight, both over the last axis, with eps inside the square root.",
   "difficulty": "easy",
   "tags": ["layer-norm", "rms-norm", "normalization", "transformers"],

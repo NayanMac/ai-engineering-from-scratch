@@ -1,6 +1,7 @@
 {
   "id": "q-learning-update",
   "title": "Q-learning and SARSA updates",
+  "kind": "implement",
   "summary": "One tabular Q-learning or SARSA update with no bootstrap at a terminal step, and epsilon-greedy actions from a seeded rng with lowest-index ties.",
   "difficulty": "easy",
   "tags": ["reinforcement-learning", "q-learning", "sarsa", "exploration"],

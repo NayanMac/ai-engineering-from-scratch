@@ -1,6 +1,7 @@
 {
   "id": "kmeans-step",
   "title": "K-means assignment and update",
+  "kind": "implement",
   "summary": "The k-means assignment and update steps with a tie rule and an empty cluster rule, and a full run until the assignments stop changing.",
   "difficulty": "medium",
   "tags": ["clustering", "k-means", "unsupervised-learning", "vectorization"],

@@ -1,6 +1,7 @@
 {
   "id": "reciprocal-rank-fusion",
   "title": "Reciprocal rank fusion",
+  "kind": "implement",
   "summary": "Merge several ranked lists of document ids into one ranking with reciprocal rank fusion, optional list weights and a fixed tie rule.",
   "difficulty": "easy",
   "tags": ["rank-fusion", "hybrid-retrieval", "ranking", "retrieval"],

@@ -1,6 +1,7 @@
 {
   "id": "inverted-dropout",
   "title": "Inverted dropout",
+  "kind": "implement",
   "summary": "Inverted dropout with a given random generator: training forward with an exact mask, backward with the same mask, identity at inference.",
   "difficulty": "easy",
   "tags": ["dropout", "regularization", "gradients"],

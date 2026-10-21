@@ -1,6 +1,7 @@
 {
   "id": "batch-norm",
   "title": "Batch normalization forward and backward",
+  "kind": "implement",
   "summary": "Training and inference forward passes with running statistics, and the full backward pass for x, gamma and beta.",
   "difficulty": "hard",
   "tags": ["batch-norm", "normalization", "gradients", "backpropagation"],

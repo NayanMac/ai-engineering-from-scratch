@@ -1,6 +1,7 @@
 {
   "id": "scaled-dot-product-attention",
   "title": "Scaled dot-product attention with a mask",
+  "kind": "implement",
   "summary": "Batched softmax(QK^T / sqrt(d_k)) V with an optional boolean mask, plus the causal mask that a decoder uses.",
   "difficulty": "medium",
   "tags": ["attention", "transformers", "masking", "softmax"],

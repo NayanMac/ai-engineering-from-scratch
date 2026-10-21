@@ -34,7 +34,7 @@ def evaluate(problem, code_path, layers=None, limit_s=None):
 
 def build_fixtures(problem, reference_path):
     practice_check.reset()
-    practice_check.load_module(str(problem / "tests.py"), "practice_tests")
+    practice_check.load_tests(str(problem / "tests.py"))
     reference = practice_check.load_module(str(reference_path), "practice_reference")
     return practice_check.build_fixtures(reference)
 

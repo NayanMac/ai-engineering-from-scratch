@@ -1,6 +1,7 @@
 {
   "id": "generalized-advantage-estimation",
   "title": "Generalized advantage estimation",
+  "kind": "implement",
   "summary": "TD errors and GAE advantages with gamma, lambda, done flags and a bootstrap value, plus the critic targets.",
   "difficulty": "medium",
   "tags": ["reinforcement-learning", "advantages", "actor-critic", "ppo"],

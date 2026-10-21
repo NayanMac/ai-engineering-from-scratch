@@ -1,6 +1,7 @@
 {
   "id": "gini-best-split",
   "title": "Gini impurity and the best split",
+  "kind": "implement",
   "summary": "Gini impurity and the best decision tree split over all features, with midpoint thresholds, weighted child impurity and a fixed tie rule.",
   "difficulty": "hard",
   "tags": ["decision-trees", "gini-impurity", "classification", "search"],

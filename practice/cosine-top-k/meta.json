@@ -1,6 +1,7 @@
 {
   "id": "cosine-top-k",
   "title": "Cosine similarity top-k search",
+  "kind": "implement",
   "summary": "Normalize embedding rows, score queries against documents with cosine similarity, and return the top k documents with a fixed tie rule.",
   "difficulty": "easy",
   "tags": ["embeddings", "cosine-similarity", "vector-search", "retrieval"],

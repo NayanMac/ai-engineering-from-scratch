@@ -1,6 +1,7 @@
 {
   "id": "pairwise-distances",
   "title": "Vectorized pairwise distances",
+  "kind": "implement",
   "summary": "Euclidean distance and cosine similarity matrices from one matrix product, with a clip at 0 and a zero-vector rule.",
   "difficulty": "medium",
   "tags": ["distances", "vectorization", "cosine-similarity", "numerical-stability"],

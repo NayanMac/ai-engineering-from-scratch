@@ -1,6 +1,7 @@
 {
   "id": "gradient-descent-linear-regression",
   "title": "Linear regression by gradient descent",
+  "kind": "implement",
   "summary": "Mean squared error, its gradients for weights and bias, and a batch gradient descent loop that records the cost after each update.",
   "difficulty": "easy",
   "tags": ["linear-regression", "gradient-descent", "loss-functions", "gradients"],

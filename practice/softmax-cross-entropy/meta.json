@@ -1,6 +1,7 @@
 {
   "id": "softmax-cross-entropy",
   "title": "Stable softmax and cross-entropy",
+  "kind": "implement",
   "summary": "Batched softmax, mean cross-entropy and its gradient, without overflow for large logits.",
   "difficulty": "easy",
   "tags": ["softmax", "loss-functions", "gradients", "numerical-stability"],

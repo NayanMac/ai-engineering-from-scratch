@@ -1,6 +1,7 @@
 {
   "id": "sinusoidal-positional-encoding",
   "title": "Sinusoidal positional encoding",
+  "kind": "implement",
   "summary": "Build the sin and cos position table with interleaved columns and base 10000, and add it to a batch of token embeddings.",
   "difficulty": "easy",
   "tags": ["positional-encoding", "transformers", "embeddings"],

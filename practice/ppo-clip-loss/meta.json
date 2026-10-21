@@ -1,6 +1,7 @@
 {
   "id": "ppo-clip-loss",
   "title": "PPO clipped surrogate loss",
+  "kind": "implement",
   "summary": "The PPO loss to minimize from new and old log probabilities and advantages, the clip fraction, and the gradient with respect to the new log probabilities.",
   "difficulty": "medium",
   "tags": ["reinforcement-learning", "ppo", "policy-gradient", "gradients"],

@@ -1,6 +1,7 @@
 {
   "id": "multi-head-split-merge",
   "title": "Split heads, merge heads, multi-head attention",
+  "kind": "implement",
   "summary": "Reshape (B, T, D) into H heads and back, then run batched multi-head self-attention with given projection matrices.",
   "difficulty": "medium",
   "tags": ["attention", "multi-head-attention", "transformers", "reshape"],

@@ -1,6 +1,7 @@
 {
   "id": "top-k-top-p-sampling",
   "title": "Temperature, top-k and top-p sampling",
+  "kind": "implement",
   "summary": "Scale logits by temperature, keep the top k or the top p mass, renormalize, and draw one token with a seeded rng.",
   "difficulty": "medium",
   "tags": [
