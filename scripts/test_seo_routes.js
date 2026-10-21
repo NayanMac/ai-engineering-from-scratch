@@ -1359,6 +1359,9 @@ test('every page type in the sitemap carries full social card tags that resolve 
     } else if (name === 'certification') {
       html = invoke(tracks, { method: 'GET', url: url.pathname + url.search, query: { id: url.searchParams.get('id') } }).body;
       card = `track/${url.searchParams.get('id')}`;
+    } else if (name === 'research') {
+      html = fs.readFileSync(path.join(ROOT, 'site', 'hubs', 'research.html'), 'utf8');
+      card = 'page/research';
     } else if (name.startsWith('manual')) {
       html = fs.readFileSync(path.join(site, `${name}.html`), 'utf8');
       card = name === 'manuals' ? 'page/manuals' : `manual/${name.slice('manual-'.length)}`;

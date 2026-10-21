@@ -55,6 +55,9 @@ on:
       - "scripts/test_agent_api.js"
       - "scripts/test_agent_wire.js"
       - "scripts/serve-agent-site.js"
+      - "research/**"
+      - "scripts/research_bridge.js"
+      - ".github/workflows/research-bridge.yml"
       - "vercel.json"
       - ".github/workflows/curriculum.yml"
       - ".github/workflows/translate.yml"
@@ -112,6 +115,9 @@ on:
       - "scripts/test_agent_api.js"
       - "scripts/test_agent_wire.js"
       - "scripts/serve-agent-site.js"
+      - "research/**"
+      - "scripts/research_bridge.js"
+      - ".github/workflows/research-bridge.yml"
       - "vercel.json"
       - ".github/workflows/curriculum.yml"
       - ".github/workflows/translate.yml"
@@ -174,6 +180,10 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/function-trace" --no-save --no-package-lock @vercel/nft@1.5.0
           NODE_PATH="$RUNNER_TEMP/function-trace/node_modules" node --test scripts/test_function_bundles.js
+      - name: research map slugs exist in the cached paperswithcode.co sitemap
+        run: node scripts/research_bridge.js
+      - name: research panels, poster lines and the research index render from the map
+        run: node --test site/test_research.js
       - name: public API and MCP contracts
         run: node --test scripts/test_agent_api.js scripts/test_agent_wire.js
       - name: dynamic lesson and certification routes preserve their public contracts
