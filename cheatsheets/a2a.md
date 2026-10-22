@@ -2,194 +2,125 @@
 id: a2a
 title: A2A Protocol
 code: AP
-subtitle: Discover an agent, send it work, follow the task, read its errors. Pinned to A2A 1.0.1.
-hue: 140
+subtitle: Run the A2A 101 kit, read streams and task states, and handle the errors the kit shows. Protocol 1.0.
+hue: 210
 sources: manuals/a2a-101
-source_hash: 2bf16b666a27a172
+source_hash: ad21d385000c4e28
 ---
 
-## Tasks over JSON-RPC
-type: task-table
-from: manuals/a2a-101/capture/out/01-agent-cards.http, manuals/a2a-101/capture/out/03-blocking-task.http, manuals/a2a-101/capture/out/04-polling.http, manuals/a2a-101/capture/out/05-streaming.http, manuals/a2a-101/capture/out/06-input-required.http, manuals/a2a-101/capture/out/10-cancel.http, manuals/a2a-101/capture/out/14-resubscribe.http, manuals/a2a-101/capture/out/15-push.http
-
-| Task | Code |
-|---|---|
-| Discover an agent | `GET /.well-known/agent-card.json` |
-| Send and wait | `"method": "SendMessage"` |
-| Send and return at once | `"configuration": {"returnImmediately": true}` |
-| Poll a task | `"method": "GetTask", "params": {"id": "<task id>", "historyLength": 0}` |
-| Stream a task | `"method": "SendStreamingMessage"` with `Accept: text/event-stream` |
-| Reattach to a stream | `"method": "SubscribeToTask", "params": {"id": "<task id>"}` |
-| Answer a question | `"message": {"contextId": "<ctx>", "taskId": "<task id>", ...}` |
-| Register a webhook | `"taskPushNotificationConfig": {"url": "<url>", "token": "<token>"}` |
-
-## One SendMessage request
-type: annotated-code
-lang: http
-from: manuals/a2a-101/capture/out/04-polling.http, manuals/a2a-101/sections/5-4-version-and-extension-headers.md, manuals/a2a-101/sections/1-2-one-task-request-by-request.md, manuals/a2a-101/sections/4-1-send-message.md
-
-```http
-POST /a2a/jsonrpc HTTP/1.1  # the JSONRPC url from the card
-Host: localhost:41241
-Content-Type: application/json
-A2A-Version: 1.0  # required on every request
-{"jsonrpc": "2.0", "id": 1, "method": "SendMessage",
- "params": {
-  "message": {"messageId": "<uuid>",  # the client mints it
-   "role": "ROLE_USER",
-   "parts": [{"text": "<request>"}]},
-  "configuration": {"returnImmediately": true}}}  # omit to block
-```
-
-## HTTP+JSON routes
-type: command-table
-from: manuals/a2a-101/sections/r-1-operations-by-binding.md, manuals/a2a-101/capture/out/16-rest-binding.http
-
-| Command | What it does |
-|---|---|
-| `POST /message:send` | SendMessage |
-| `POST /message:stream` | SendStreamingMessage, a stream of `StreamResponse` |
-| `GET /tasks/{id=*}` | GetTask. `historyLength` goes in the query |
-| `GET /tasks` | ListTasks |
-| `POST /tasks/{id=*}:cancel` | CancelTask |
-| `POST /tasks/{id=*}:subscribe` | SubscribeToTask. Accept `GET` too |
-| `POST /tasks/{task_id=*}/pushNotificationConfigs` | CreateTaskPushNotificationConfig |
-| `GET /extendedAgentCard` | GetExtendedAgentCard |
-
-## Capture kit and conformance
-type: annotated-code
-lang: bash
-from: manuals/a2a-101/capture/README.md, manuals/a2a-101/sections/7-3-conformance-testing.md
-
-```bash
-python3 run.py  # three agents and a client, writes out/
-python3 run.py --check  # capture again and compare
-git clone --filter=blob:none https://github.com/a2aproject/a2a-tck.git
-cd a2a-tck
-git checkout 1.0.0.alpha2  # the TCK tag the manual ran
-uv venv && source .venv/bin/activate
-uv pip install -e .
-./run_tck.py --sut-host http://localhost:9999  # reads the card, tests each binding
-```
-
-## The capture kit agents
+## Kit architecture
 type: architecture
-from: manuals/a2a-101/capture/README.md, manuals/a2a-101/sections/2-2-discovery-and-supported-interfaces.md, manuals/a2a-101/sections/4-6-push-notification-configs.md, manuals/a2a-101/sections/7-1-a-client.md
+from: manuals/a2a-101/front.md, manuals/a2a-101/capture/README.md
 
 ```arch
-node | planner | 1,2 | planner.py | client agent
-node | card | 2,1 | Agent cards | /.well-known/agent-card.json
-node | runner | 2,2 | test-runner | :41241 stream, push
-node | reviewer | 3,1 | code-reviewer | :41242 input required
-node | deployer | 3,2 | deployer | :41243 bearer, auth required
-node | hook | 1,3 | Webhook | :41250 /a2a-events
-node | operator | 3,3 | Operator | approves outside A2A
-edge | planner | card | GET
-edge | planner | runner | JSON-RPC
-edge | planner | reviewer | JSON-RPC
-edge | planner | deployer | Bearer
-edge | runner | hook | push
-edge | operator | deployer | approve
+node | planner | 1,1 | Planner | client agent | client
+node | test | 2,1 | test-runner | port 41241 | process
+node | review | 3,1 | code-reviewer | port 41242 | process
+node | deploy | 4,1 | deployer | port 41243 | process
+node | hook | 2,2 | Webhook receiver | port 41250 | client
+edge | planner | test | SendStreamingMessage
+edge | planner | review | SendMessage
+edge | planner | deploy | SendMessage
+edge | test | hook | push
 ```
 
-## One streamed task
-type: flow
-from: manuals/a2a-101/sections/1-2-one-task-request-by-request.md
-
-1. **Client**: reads the card and checks `capabilities.streaming` is true.
-2. **Client**: posts `SendStreamingMessage` with a new `messageId` and no `taskId`.
-3. **Server**: frame 1 is the Task in `TASK_STATE_SUBMITTED` with new ids.
-4. **Agent**: a `statusUpdate` moves the task to `TASK_STATE_WORKING`.
-5. **Agent**: `artifactUpdate` frames build `test-log` with `append`, then `lastChunk`.
-6. **Agent**: the last `statusUpdate` sets `TASK_STATE_COMPLETED`.
-7. **Server**: closes the stream. The client confirms with `GetTask`.
-
-## Task states
-type: concepts
-from: manuals/a2a-101/sections/r-3-task-states.md
-
-- **TASK_STATE_SUBMITTED**: active. Wait, poll, or subscribe.
-- **TASK_STATE_WORKING**: active. As for a submitted task.
-- **TASK_STATE_INPUT_REQUIRED**: interrupted. Answer with the same `taskId` and `contextId`.
-- **TASK_STATE_AUTH_REQUIRED**: interrupted. Approval comes outside A2A. Subscribe or poll.
-- **TASK_STATE_COMPLETED**: terminal. Read the artifacts.
-- **TASK_STATE_FAILED**: terminal. Fix the input and start a new task.
-- **TASK_STATE_CANCELED**: terminal. Start a new task in the same context.
-- **TASK_STATE_REJECTED**: terminal. Stop and follow the status message.
-
-## Error codes
+## Run the kit
 type: command-table
-from: manuals/a2a-101/sections/r-4-errors.md
+from: manuals/a2a-101/front.md, manuals/a2a-101/README.md
 
 | Command | What it does |
 |---|---|
-| `-32001` TaskNotFoundError | HTTP 404, gRPC NOT_FOUND |
-| `-32002` TaskNotCancelableError | HTTP 400, FAILED_PRECONDITION |
-| `-32003` PushNotificationNotSupportedError | HTTP 400, FAILED_PRECONDITION |
-| `-32004` UnsupportedOperationError | HTTP 400, FAILED_PRECONDITION |
-| `-32005` ContentTypeNotSupportedError | HTTP 400, INVALID_ARGUMENT |
-| `-32009` VersionNotSupportedError | HTTP 400, FAILED_PRECONDITION |
-| `-32601` MethodNotFoundError | JSON-RPC only |
-| `-32602` InvalidParamsError | HTTP 400, INVALID_ARGUMENT |
+| `cd manuals/a2a-101` | Enter the manual folder. |
+| `python3 capture/run.py` | Record the files in `capture/out/`. |
+| `python3 capture/run.py --check` | Capture again and compare. |
+| `node scripts/audit_manuals.js --manual a2a-101` | Audit the manual. Must report `TOTAL 0`. |
+
+## Annotated run
+type: annotated-code
+lang: bash
+from: manuals/a2a-101/capture/README.md, manuals/a2a-101/README.md
+
+```bash
+python3 run.py          # writes out/
+python3 run.py --check  # captures again into a temporary folder and compares
+python3 capture/run.py --check
+```
+
+## Kit tasks
+type: task-table
+from: manuals/a2a-101/capture/README.md, manuals/a2a-101/capture/agents.py
+
+| Task | Where |
+|---|---|
+| Read the card of `test-runner` | `GET /.well-known/agent-card.json` on port 41241 |
+| Send a streamed task | `SendStreamingMessage` on `/a2a/jsonrpc` |
+| Ask a question to `code-reviewer` | `SendMessage` on port 41242 |
+| Approve a deploy outside A2A | `POST /approve/<task id>` on port 41243 |
 
 ## Defaults
 type: defaults
-from: manuals/a2a-101/sections/4-1-send-message.md, manuals/a2a-101/sections/4-3-get-task-and-list-tasks.md, manuals/a2a-101/sections/5-4-version-and-extension-headers.md, manuals/a2a-101/sections/r-4-errors.md, manuals/a2a-101/sections/4-6-push-notification-configs.md, manuals/a2a-101/sections/7-1-a-client.md
+from: manuals/a2a-101/front.md, manuals/a2a-101/capture/README.md
 
 | Setting | Default | Note |
 |---|---|---|
-| `returnImmediately` | `false` | A send waits for a terminal or interrupted state |
-| `historyLength` | Unset | Server returns its default amount |
-| `includeArtifacts` | `false` | ListTasks omits artifacts |
-| `pageSize` in ListTasks | 50 | The maximum is 100 |
-| Missing `A2A-Version` | `0.3` | A 1.0 server refuses it |
-| JSON-RPC error status | `200 OK` | Kit and SDK. The spec sets none |
-| Push token header | `X-A2A-Notification-Token` | Kit and SDK choice |
-| Kit request timeout | 15 seconds | The spec sets none |
+| Protocol version | `1.0` | Every request and card |
+| Webhook port | 41250 | Receiver on 127.0.0.1 |
+| Clock start | 2026-10-06T09:00:00Z | Kit timestamps |
+| Clock step | 250 ms | Each new task or status |
 
 ## Troubleshooting
 type: troubleshooting
-from: manuals/a2a-101/capture/out/11-errors.http, manuals/a2a-101/capture/out/10-cancel.http, manuals/a2a-101/capture/out/18-extended-card.http, manuals/a2a-101/sections/5-4-version-and-extension-headers.md, manuals/a2a-101/sections/7-4-from-0-3-to-1-0.md, manuals/a2a-101/sections/r-3-task-states.md, manuals/a2a-101/sections/7-3-conformance-testing.md
+from: manuals/a2a-101/capture/README.md
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `-32009` Protocol version not supported | No `A2A-Version` header, read as 0.3 | Send `A2A-Version: 1.0` |
-| `-32601` Method not found | A 0.3 name such as `message/send` | Use `SendMessage` |
-| `-32602` Invalid parameters | The message has no `messageId` | Mint a `messageId` per message |
-| `-32005` Content type not supported | An `image/png` part | Send a mode the card accepts |
-| `-32004` on a message or a subscribe | The task is terminal | Start a new task |
-| `-32002` Task cannot be canceled | The task already ended | Read it with `GetTask` |
-| HTTP 401 on GetExtendedAgentCard | No bearer token | Send `Authorization: Bearer <token>` |
-| TCK JSON-RPC records fail with 404 | The TCK adds a trailing slash to `url` | Post to the exact `url` |
+| Message role is not the client role | Server rejects it | Send the client role on every client message |
+| Card has no `Cache-Control` or `ETag` | Kit omits cache headers | Cache the card for the session |
+| Stream closes at input required | Kit closes there | Read the task after the close |
+| Webhook gets no first Task snapshot | Kit sends updates only | Read the task with `GetTask` |
+| `append` to unknown `artifactId` starts a new artifact | Kit starts a new artifact | Send the first chunk without `append` |
+
+## Stream flow
+type: flow
+from: manuals/a2a-101/capture/out/05-streaming.events.json
+
+1. **Submitted**: the first frame holds the task in `TASK_STATE_SUBMITTED`.
+2. **Working**: frame 2 sets `TASK_STATE_WORKING`.
+3. **Artifact**: frames 3 to 7 append the `test-log` chunks, with `lastChunk` on frame 7.
+4. **Summary**: frame 8 sends the `summary` artifact with `lastChunk`.
+5. **Completed**: frame 9 sets `TASK_STATE_COMPLETED`, then the stream closes.
+
+## Deploy approval
+type: flow
+from: manuals/a2a-101/capture/out/07-auth-required.events.json
+
+1. **Working**: frame 2 sets `TASK_STATE_WORKING` for the deploy.
+2. **Auth required**: frame 3 sets `TASK_STATE_AUTH_REQUIRED` and asks for approval.
+3. **Approved**: frame 4 sets `TASK_STATE_WORKING` again.
+4. **Report**: frame 5 sends the `deploy-report` artifact.
+5. **Completed**: frame 6 sets `TASK_STATE_COMPLETED`.
 
 ## Glossary
 type: glossary
-from: manuals/a2a-101/sections/r-5-glossary.md
+from: manuals/a2a-101/front.md, manuals/a2a-101/capture/README.md, manuals/a2a-101/capture/out/05-streaming.events.json, manuals/a2a-101/capture/out/07-auth-required.events.json
 
-- **Agent card**: JSON that describes an agent, usually at `/.well-known/agent-card.json`.
-- **Task**: the unit of work a server creates for a message, with an `id`.
-- **Context**: a conversation that groups tasks and messages under one `contextId`.
-- **Message**: one turn, with a `messageId`, a `role`, and parts.
-- **Part**: smallest unit of content: `text`, `raw`, `url`, or `data`.
-- **Artifact**: an output of a task, made of parts. Long ones arrive in chunks.
-- **Push notification**: an HTTP POST of a `StreamResponse` to a client webhook.
-- **Service parameter**: a per-request key such as `A2A-Version`, sent as a header.
+- **Capture kit**: The three agents and the planner in `capture/`, with no dependencies.
+- **Terminal state**: A final state that ends the task. The stream closes after it.
+- **Interrupted state**: A state where the task waits for input or approval. `TASK_STATE_AUTH_REQUIRED` is one.
+- **Stream**: Server-sent frames for one task.
 
-## Q&A
+## Questions
 type: qa
-from: manuals/a2a-101/sections/r-1-operations-by-binding.md, manuals/a2a-101/sections/7-4-from-0-3-to-1-0.md, manuals/a2a-101/sections/1-2-one-task-request-by-request.md, manuals/a2a-101/sections/r-4-errors.md, manuals/a2a-101/sections/2-2-discovery-and-supported-interfaces.md
+from: manuals/a2a-101/capture/README.md, manuals/a2a-101/front.md
 
-- **What does a send return?** One `task` or one `message`. A message alone is a direct reply.
-- **Does `lastChunk` end the task?** No. It closes one artifact only.
-- **Why 200 OK on a JSON-RPC error?** The spec sets no status. The kit and the SDK send `200 OK`.
-- **Which interface does a client use?** The first `supportedInterfaces` entry that it speaks.
-- **How did 0.3 `blocking` change?** `returnImmediately` replaced it, and a send now waits.
+- **Are the kit records real traffic?** No. They match `a2a-sdk` 1.2.2 in structure, with the differences the kit README lists.
+- **Why do two runs match byte for byte?** Ids come from seeded generators and the clock is fixed.
+- **Where is the planner?** It is `planner.py`, the client agent of section 7.1.
 
 ## Tips
 type: tips
-from: manuals/a2a-101/sections/4-1-send-message.md, manuals/a2a-101/sections/1-2-one-task-request-by-request.md, manuals/a2a-101/sections/2-2-discovery-and-supported-interfaces.md, manuals/a2a-101/sections/4-6-push-notification-configs.md
+from: manuals/a2a-101/capture/README.md, manuals/a2a-101/front.md
 
-- Set `returnImmediately: true` when you poll, subscribe, or wait for a webhook.
-- Take the task id and context id from the first frame.
-- Skip any operation whose capability flag is absent or `false`.
-- Process push notifications idempotently. Duplicates can arrive.
+- Start with `capture/out/02-message-reply.http`, then open `capture/out/05-streaming.http`.
+- Read the kit README first to see where the kit differs from the reference SDK.
+- Check the version header on every request: `1.0`.
