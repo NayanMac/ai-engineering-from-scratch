@@ -2,173 +2,132 @@
 id: docker-sandboxes
 title: Docker Sandboxes for Agents
 code: DS
-subtitle: Run an agent in a microVM, control its network and keys, get its commits back. sbx 0.47.0, docker-agent 1.149.0.
+subtitle: Create, attach, police and serve sandboxed agents with sbx v0.47.0 and docker-agent v1.149.0.
 hue: 210
 sources: manuals/docker-sandboxes-101
-source_hash: 27c0ba82cd494898
+source_hash: 2cc58bf3b3ec7dde
 ---
 
-## What runs where
+## Who owns what
 type: architecture
-from: manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md, manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md, manuals/docker-sandboxes-101/sections/2-4-sandboxd-diagnose-and-reset.md
+from: manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md, manuals/docker-sandboxes-101/sections/3-1-sbx-diagnose-and-the-microvm-boundary.md, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md
 
 ```arch
-node | cli | 1,1 | sbx CLI | host
-node | daemon | 2,1 | sandboxd | sandboxd.sock, daemon.log
-node | keys | 3,1 | Secret store | macOS Keychain
-node | vm | 1,2 | Sandbox microVM | own kernel, private Docker Engine
-node | agent | 2,2 | Agent | user agent, uid 1000
-node | proxy | 3,2 | Forward proxy | gateway.docker.internal:3128
-node | ws | 1,3 | Workspace | virtiofs, same absolute path
-node | net | 3,3 | Allowed hosts | policy rules
-edge | cli | daemon | socket
-edge | daemon | vm | starts
-edge | vm | agent | runs
-edge | agent | proxy | HTTPS_PROXY
-edge | keys | proxy | swap
-edge | proxy | net | allowed
+node | cli | 1,1 | sbx CLI | create, run, exec | client
+node | sbxd | 2,1 | sandboxd | daemon and state | process
+node | vm | 3,1 | microVM | guest kernel, Docker Engine | process
+node | proxy | 2,2 | Proxy | policy and secrets | process
+node | mr | 3,2 | Model Runner | model on the host | model
+node | ws | 1,2 | Workspace | virtiofs mount | store
+edge | cli | sbxd | socket
+edge | sbxd | vm | runs
+edge | vm | proxy | HTTP_PROXY
+edge | proxy | mr | model call
 edge | vm | ws | mount
 ```
 
-## One request leaves the sandbox
+## One sandboxed docker-agent run
 type: flow
-from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md
+from: manuals/docker-sandboxes-101/sections/1-2-docker-agent-run-sandbox-end-to-end.md
 
-1. **sbx create**: sandboxd pulls the template and boots the microVM.
-2. **Agent**: sends the request to the forward proxy on the host.
-3. **Authorizer**: a matching deny wins. No matching allow is an implicit deny.
-4. **Blocked**: the proxy answers 403 inside TLS with "Approval required".
-5. **Allowed**: the proxy tunnels the host as `forward-bypass`.
-6. **Bound secret**: the proxy swaps the sentinel for the stored value.
-7. **policy log**: one row per host with proxy type and rule.
+1. **Allow**: `docker-agent sandbox allow` stores the model host in the persistent allowlist.
+2. **Stage**: docker-agent stages the agent file into a kit in the workspace.
+3. **Create**: sbx creates `docker-agent-<hash>` with the workspace mounted rw.
+4. **Fail**: the session store on the virtiofs mount returns error 1032 and the run exits.
+5. **Model call**: `sbx exec` into the same VM answers the task through the proxy.
 
-## Sandbox lifecycle
+## Create, attach and remove
+type: annotated-code
+lang: bash
+from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md
+
+```bash
+sbx create shell <path> --name <name>   # sandbox on a workspace
+sbx run --name <name>                   # attach again
+sbx exec <name> <command>               # run one command inside
+sbx stop <name>                         # keep state, end the VM
+sbx rm --force <name>                   # delete the sandbox
+```
+
+## Sandbox lifecycle tasks
 type: task-table
-from: manuals/docker-sandboxes-101/capture/out/04-create.txt, manuals/docker-sandboxes-101/capture/out/07-template-save.txt, manuals/docker-sandboxes-101/capture/out/06-cp.txt, manuals/docker-sandboxes-101/capture/out/05-ports.txt, manuals/docker-sandboxes-101/capture/out/04-stop.txt, manuals/docker-sandboxes-101/capture/out/04-prune.txt, manuals/docker-sandboxes-101/capture/out/04-ls.txt, manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md
+from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md, manuals/docker-sandboxes-101/sections/2-3-sbx-template-save-and-load.md
 
 | Task | Code |
 |---|---|
-| Create on a repository | `sbx create shell <path> --name <name>` |
-| Attach again | `sbx run --name <name>` |
-| Run a command as root | `sbx exec -u root <name> sh -c '<cmd>'` |
-| Copy a file in | `sbx cp <host-file> <name>:/tmp/in.txt` |
-| Publish a port | `sbx ports <name> --publish 18081:8080` |
-| Stop and keep state | `sbx stop <name>` |
-| Remove stopped sandboxes | `sbx prune --force` |
+| Start from a saved template | `sbx create --pull never -t <tag> shell --name <name>` |
+| Copy a file into a sandbox | `sbx cp <file> <name>:<path>` |
+| Publish a port on 127.0.0.1 | `sbx ports <name> --publish <host>:<port>` |
+| Save a stopped sandbox as a template | `sbx template save <sandbox> <tag> --output <file>` |
+| Load a template tar on another host | `sbx template load <file>` |
+| Preview a prune | `sbx prune --dry-run --json` |
 
-## Secrets, MCP and health
-type: task-table
-from: manuals/docker-sandboxes-101/capture/out/10-set-custom.txt, manuals/docker-sandboxes-101/capture/out/10-import-dry-run.txt, manuals/docker-sandboxes-101/capture/out/11-mcp-add.txt, manuals/docker-sandboxes-101/capture/out/11-load.txt, manuals/docker-sandboxes-101/capture/out/02-daemon-status.txt, manuals/docker-sandboxes-101/capture/out/02-diagnose.txt, manuals/docker-sandboxes-101/capture/out/07-template-save.txt, manuals/docker-sandboxes-101/capture/out/27-sandbox-run.txt
-
-| Task | Code |
-|---|---|
-| Bind a secret to hosts | `sbx secret set-custom --host <host> --env <VAR> --value <value>` |
-| Find keys in host env | `sbx secret import --dry-run` |
-| Register an MCP server | `sbx mcp add <name> --url <url>` |
-| Attach it to a sandbox | `sbx mcp load <name> --sandbox <sandbox>` |
-| Run the 13 checks | `sbx diagnose` |
-| Save a template | `sbx template save <name> <tag> --output <file>.tar` |
-| Run an agent file in a sandbox | `docker-agent run --sandbox --exec <agent-file> '<prompt>'` |
-
-## Clone mode round trip
-type: annotated-code
-lang: bash
-from: manuals/docker-sandboxes-101/capture/out/08-clone-create.txt, manuals/docker-sandboxes-101/capture/out/08-clone-host.txt, manuals/docker-sandboxes-101/capture/out/08-clone-rm.txt, manuals/docker-sandboxes-101/sections/3-2-clone-and-run-sandbox-source.md, manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md
-
-```bash
-sbx create --clone shell <repo> \  # private clone, host repo read-only
-  --name <name>  # source at /run/sandbox/source
-sbx exec <name> sh -c '<edit and git commit>'  # agent commits in the clone
-git -C <repo> remote -v  # sbx added sandbox-<name>
-git -C <repo> fetch sandbox-<name>  # bring the commits back
-sbx rm --force <name>  # VM, state and scoped secrets go
-```
-
-## Debug a blocked host
-type: annotated-code
-lang: bash
-from: manuals/docker-sandboxes-101/capture/out/03-policy-init.txt, manuals/docker-sandboxes-101/capture/out/09-create.txt, manuals/docker-sandboxes-101/capture/out/09-blocked-by-rule.txt, manuals/docker-sandboxes-101/capture/out/09-policy-log.txt, manuals/docker-sandboxes-101/capture/out/09-allow.txt, manuals/docker-sandboxes-101/capture/out/09-rm-allow.txt, manuals/docker-sandboxes-101/capture/run.py
-
-```bash
-sbx policy init balanced  # once, before the first sandbox
-sbx create shell --name m101-policy  # no workspace mount
-sbx exec m101-policy sh -c \
-  'curl -sS --max-time 10 https://example.com'  # Approval required
-sbx policy log m101-policy  # forward, default deny
-sbx policy allow network \
-  --sandbox m101-policy example.com  # rule for one sandbox
-sbx policy check network example.com \
-  --sandbox m101-policy --verbose --json  # read allowed, rule
-```
-
-## What the agent sees inside
+## Policy, secrets and MCP commands
 type: command-table
-from: manuals/docker-sandboxes-101/capture/out/04-env.txt, manuals/docker-sandboxes-101/capture/out/10-env-sentinel.txt, manuals/docker-sandboxes-101/capture/out/09-policy-log.txt, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md
+from: manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md, manuals/docker-sandboxes-101/sections/3-6-sbx-mcp-add-load-and-static-mcp.md
 
 | Command | What it does |
 |---|---|
-| `HTTPS_PROXY=http://gateway.docker.internal:3128` | Forward proxy for HTTP and HTTPS |
-| `ANTHROPIC_API_KEY=proxy-managed` | Sentinel. The real key stays on the host |
-| `M101_RECV_KEY=sbx-cs-<rand>` | Custom secret placeholder |
-| `SSH_AUTH_SOCK=/run/ssh-agent.sock` | Host SSH agent, forwarded by default |
-| `forward-bypass` | Log proxy type. Tunnel, no inspection |
-| `transparent` | Log proxy type. Other TCP, no injection |
-| `"deny_kind": "explicit"` | A rule denied it. `implicit` means no allow |
+| `sbx policy init balanced` | Sets the global preset once, before the first sandbox |
+| `sbx policy allow network --sandbox <name> <host>` | Adds a rule scoped to one sandbox |
+| `sbx policy check network --sandbox <name> <host:port> --json` | Predicts a decision and exits 1 on denial |
+| `sbx secret set-custom` | Binds a placeholder to the hosts named by `--host` |
+| `sbx mcp load <name> --sandbox <sandbox>` | Adds a registered server to a running sandbox |
+
+## Workspace modes
+type: comparison
+from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/3-2-clone-and-run-sandbox-source.md
+
+| Factor | Bind mount | Clone | Mountless |
+|---|---|---|---|
+| Create with | `sbx create shell <path>` | `sbx create --clone shell <path>` | `sbx create shell` with no path |
+| Agent sees | your files at the same path | a private clone, source read-only | no host bind mount |
+| Get commits back | files already on the host | `git fetch sandbox-<name>` | copy out with `sbx cp` |
 
 ## Defaults
 type: defaults
-from: manuals/docker-sandboxes-101/sections/r-1-sbx-commands.md, manuals/docker-sandboxes-101/sections/r-3-settings-keys-environment-variables-and-paths.md
+from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/2-5-sbx-settings-list.md, manuals/docker-sandboxes-101/sections/3-1-sbx-diagnose-and-the-microvm-boundary.md, manuals/docker-sandboxes-101/sections/4-5-sbx-skills-add-and-skills-true.md, manuals/docker-sandboxes-101/sections/5-4-sub-agents-transfer-task-and-background-agents.md
 
 | Setting | Default | Note |
 |---|---|---|
-| `--name` | `<agent>-<workdir>` | Set it, so two agents stay apart |
-| `-m, --memory` | 50% of host memory | Clamped from 512 MiB to 32 GiB |
+| `--memory` | 50% of host memory | Clamped to 512 MiB to 32 GiB |
+| `--cpus` | 0 | All host CPUs, at most 16 on Linux arm64 |
 | `--pull` | `always` | Also `missing` or `never` |
-| `--skills` | `readonly` | Also `off` or `readwrite` |
-| `secret set --refresh` | `55m` | Refresh for a dynamic source |
-| `ssh.agentForwardingEnabled` | `true` | Turn off for agents you do not trust |
-| `sandbox.disk.dockerVolume` | `10g` | Size of `/var/lib/docker` |
-| `kit.allowedSources` | `["docker.io/"]` | Allowed remote kit sources |
+| `kit.allowedSources` | `["docker.io/"]` | Add a registry prefix to use another source |
+| `skills.defaultMode` | `readonly` | Applies to sandboxes created after the change |
+| `max_consecutive_tool_calls` | 5 | Identical calls before the run stops |
 
-## Key concepts
-type: concepts
-from: manuals/docker-sandboxes-101/sections/r-8-glossary-and-index-of-figures.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md
+## Agent and serve tasks
+type: task-table
+from: manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md, manuals/docker-sandboxes-101/sections/1-2-docker-agent-run-sandbox-end-to-end.md, manuals/docker-sandboxes-101/sections/5-1-docker-agent-run-new-and-doctor.md, manuals/docker-sandboxes-101/sections/5-6-session-db-sessions-diff-and-eval.md, manuals/docker-sandboxes-101/sections/6-4-share-push-and-share-pull.md
 
-- **Sandbox**: a microVM with its own kernel and a private Docker Engine.
-- **Clone mode**: `--clone`. The agent works on a private clone. Commits return through a remote.
-- **Preset**: `allow-all`, `balanced` or `deny-all`, set once with `sbx policy init`.
-- **Policy scope**: `global` for all sandboxes, or one sandbox with `--sandbox`.
-- **Deny wins**: a deny rule takes precedence over an allow for the same host.
-- **Sentinel**: the placeholder the agent sees in place of a secret.
+| Task | Code |
+|---|---|
+| Run an agent file headless | `docker-agent run --exec --json <file> <message>` |
+| Run an agent in a sandbox | `docker-agent run --sandbox <file>` |
+| Allow a host from the VM | `docker-agent sandbox allow <host:port>` |
+| Ask which model auto picks | `docker-agent doctor` |
+| Compare two sessions | `docker-agent sessions diff -- -1 -2` |
+| Push an agent to a registry | `docker-agent share push <file> <ref>` |
 
 ## Troubleshooting
 type: troubleshooting
-from: manuals/docker-sandboxes-101/capture/out/09-blocked.txt, manuals/docker-sandboxes-101/capture/out/05-ports-curl.txt, manuals/docker-sandboxes-101/capture/out/06-cp.txt, manuals/docker-sandboxes-101/capture/out/09-deny-conflict.txt, manuals/docker-sandboxes-101/capture/out/09-rm-allow.txt, manuals/docker-sandboxes-101/capture/out/07-template-save.txt, manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md, manuals/docker-sandboxes-101/sections/3-2-clone-and-run-sandbox-source.md, manuals/docker-sandboxes-101/sections/2-4-sandboxd-diagnose-and-reset.md
+from: manuals/docker-sandboxes-101/sections/1-2-docker-agent-run-sandbox-end-to-end.md, manuals/docker-sandboxes-101/sections/2-3-sbx-template-save-and-load.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md, manuals/docker-sandboxes-101/sections/5-4-sub-agents-transfer-task-and-background-agents.md
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Approval required for example.com:443.` | No allow rule matches | `sbx policy allow network --sandbox <name> <host>` |
-| curl to `::1` fails with exit 7 | Port published as `tcp4` | Publish `8080/tcp` for both families |
-| `copying between sandboxes is not supported` | `cp` needs a host side | Copy through the host |
-| Deny `conflicts with existing allow rule` | Allow and deny in one scope | `sbx policy rm network --id <uuid>` first |
-| No API key from `~/.zshrc` | Host environment not read since v0.35.0 | `sbx secret set` or `sbx secret import` |
-| `ensure daemon: daemon exited unexpectedly` | sandboxd problem | `sbx daemon status --json`, read `daemon.log` |
-
-## Q&A
-type: qa
-from: manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md, manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md, manuals/docker-sandboxes-101/sections/3-2-clone-and-run-sandbox-source.md
-
-- **Do I need Docker Desktop?** No. You need `sbx login`. Containers of the agent never show in host `docker ps`.
-- **stop or rm?** `sbx stop` keeps state. `sbx rm` deletes the sandbox, its state and scoped secrets.
-- **Does a host allow block a gist upload?** No. A host allow passes any method, path and body.
-- **Does the agent see my key?** No. It sees `proxy-managed`. The proxy adds the key after the VM.
+| `attempt to write a readonly database (1032)` | SQLite cannot write on the virtiofs workspace mount | Probe SQLite on the mount before the run |
+| `Blocked by network policy` (403) | The model host is not allowed | `docker-agent sandbox allow <host:port>` |
+| `Approval required for example.com:443` | No allow rule covers the host | `sbx policy allow network --sandbox <name> <host>` |
+| `cannot save a running sandbox` | Template save needs a stopped sandbox | `sbx stop <name>`, then save again |
+| `conflicts with existing allow rule` | A deny meets an allow in the same scope | Remove the allow rule, then add the deny |
+| `detected 5 consecutive identical calls` | A call that asks for approval was rejected with no terminal | Add an allow rule for the tool |
 
 ## Tips
 type: tips
-from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md, manuals/docker-sandboxes-101/sections/3-5-sbx-secret-set-import-and-set-custom.md, manuals/docker-sandboxes-101/sections/2-4-sandboxd-diagnose-and-reset.md, manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md
+from: manuals/docker-sandboxes-101/sections/2-1-sbx-run-create-stop-and-rm.md, manuals/docker-sandboxes-101/sections/2-4-sandboxd-diagnose-and-reset.md, manuals/docker-sandboxes-101/sections/3-2-clone-and-run-sandbox-source.md, manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md
 
-- Set memory, ports, skills and static MCP servers at creation. A re-attach ignores them.
-- Run `sbx prune --dry-run` before a prune.
-- Add narrow rules with `--sandbox`. Keep global rules for hosts every agent needs.
-- Store keys with `sbx secret set`, never with `-e KEY`.
-- Bind a custom secret to exact hosts. The proxy replaces the placeholder anywhere.
+- Name every sandbox with `--name`, so two agents on one directory stay apart.
+- Run `sbx policy ls --wide --json` before you trust the preset list.
+- Read `sbx diagnose --json` before you file an issue.
+- Use `--clone` for any agent you would not trust with `.git/hooks` and build scripts.
